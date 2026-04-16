@@ -32,8 +32,13 @@ export default function AppLayout() {
   const menuItems = [
     { key: '/', icon: <DashboardOutlined />, label: 'Главная' },
     { key: '/items', icon: <DatabaseOutlined />, label: 'Каталог' },
-    { key: '/reports', icon: <FileTextOutlined />, label: 'Отчёты' },
   ];
+
+  if (user?.role === 'admin' || user?.role === 'keeper' || user?.role === 'researcher') {
+    menuItems.push(
+    { key: '/reports', icon: <FileTextOutlined />, label: 'Отчёты' },
+    );
+  }
 
   if (user?.role === 'admin') {
     menuItems.push(

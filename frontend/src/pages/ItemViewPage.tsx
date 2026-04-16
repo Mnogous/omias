@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Descriptions, Card, Typography, Button, Image, Space, Tag, Table, Spin } from 'antd';
-import { EditOutlined, ArrowLeftOutlined, HistoryOutlined } from '@ant-design/icons';
+import { EditOutlined, ArrowLeftOutlined, HistoryOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
@@ -42,6 +42,15 @@ export default function ItemViewPage() {
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/items')}>Назад</Button>
         {canEdit && <Button type="primary" icon={<EditOutlined />} onClick={() => navigate(`/items/${id}/edit`)}>Редактировать</Button>}
         <Button icon={<HistoryOutlined />} onClick={loadHistory}>История изменений</Button>
+        {canEdit && <Button icon={<FilePdfOutlined />} onClick={() => {
+          api.get(`/reports/item-card/${id}`, { responseType: 'blob' }).then((res) => {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(res.data);
+            link.download = `item_${id}.pdf`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+          });
+        }}>Скачать PDF</Button>}
       </Space>
 
       <Card style={{ marginBottom: 16 }}>

@@ -16,8 +16,8 @@ export default function LoginPage() {
     try {
       await login(values.username, values.password);
       navigate('/');
-    } catch {
-      message.error('Неверный логин или пароль');
+    } catch (e: any) {
+      message.error(e.response?.data?.detail || 'Неверный логин или пароль');
     } finally {
       setLoading(false);
     }

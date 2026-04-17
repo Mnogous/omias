@@ -66,7 +66,7 @@ export default function DictionariesPage() {
       render: (_: any, r: any) => (
         <Space>
           <Button size="small" icon={<EditOutlined />} onClick={() => { setEditingItem(r); form.setFieldsValue(r); setModalOpen(true); }} />
-          <Popconfirm title="Удалить?" onConfirm={() => handleDelete(r.id)}>
+          <Popconfirm title="Удалить запись?" okText="Да" cancelText="Отмена" onConfirm={() => handleDelete(r.id)}>
             <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
         </Space>

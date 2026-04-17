@@ -15,6 +15,7 @@ export default function AuditPage() {
   const [entries, setEntries] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(50);
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
   const [filterUser, setFilterUser] = useState<number | undefined>();
@@ -25,7 +26,7 @@ export default function AuditPage() {
 
   useEffect(() => {
     setLoading(true);
-    const params: Record<string, any> = { page, per_page: 50 };
+    const params: Record<string, any> = { page, per_page: perPage };
     if (filterUser) params.user_id = filterUser;
     if (filterAction) params.action = filterAction;
     if (dateRange) { params.date_from = dateRange[0]; params.date_to = dateRange[1]; }
@@ -33,7 +34,7 @@ export default function AuditPage() {
       setEntries(res.data.entries);
       setTotal(res.data.total);
     }).finally(() => setLoading(false));
-  }, [page, filterUser, filterAction, dateRange]);
+  }, [page, perPage, filterUser, filterAction, dateRange]);
 
   const columns = [
     { title: 'Дата', key: 'date', width: 160, render: (_: any, r: any) => new Date(r.created_at).toLocaleString('ru-RU') },
@@ -49,23 +50,23 @@ export default function AuditPage() {
       <Card size="small" style={{ marginBottom: 16 }}>
         <Row gutter={12}>
           <Col span={6}>
-            <Select placeholder="Пользователь" value={filterUser} onChange={setFilterUser} allowClear style={{ width: '100%' }}
+            <Select placeholder="Пользователь" value={filterUser} onChange={(v) => { setFilterUser(v); setPage(1); }} allowClear style={{ width: '100%' }}
               options={users.map((u: any) => ({ value: u.id, label: u.full_name }))} />
           </Col>
           <Col span={6}>
-            <Select placeholder="Действие" value={filterAction} onChange={setFilterAction} allowClear style={{ width: '100%' }}
+            <Select placeholder="Действие" value={filterAction} onChange={(v) => { setFilterAction(v); setPage(1); }} allowClear style={{ width: '100%' }}
               options={Object.entries(ACTION_LABELS).map(([k, v]) => ({ value: k, label: v }))} />
           </Col>
           <Col span={6}>
-            <RangePicker style={{ width: '100%' }} onChange={(dates) => {
+            <RangePicker placeholder={['Начало', 'Конец']} style={{ width: '100%' }} onChange={(dates) => {
               if (dates && dates[0] && dates[1]) setDateRange([dates[0].format('YYYY-MM-DD'), dates[1].format('YYYY-MM-DD')]);
               else setDateRange(null);
             }} />
           </Col>
         </Row>
       </Card>
-      <Table dataSource={entries} columns={columns} rowKey="id" loading={loading} size="small"
-        pagination={{ current: page, pageSize: 50, total, onChange: setPage, showTotal: (t) => `Всего: ${t}` }} />
+      <Table dataSource={entries} columns={columns} rowKey="id" loading={loading} size="small" locale={{ emptyText: 'Нет данных' }}
+        pagination={{ current: page, pageSize: perPage, total, showSizeChanger: true, pageSizeOptions: ['20', '50', '100'], onChange: (p, ps) => { setPage(p); setPerPage(ps); }, showTotal: (t) => `Всего: ${t}` }} />
     </div>
   );
 }

@@ -28,8 +28,18 @@ export default function ItemViewPage() {
 
   const canEdit = user?.role === 'admin' || user?.role === 'keeper' || user?.role === 'researcher';
 
+  const FIELD_LABELS: Record<string, string> = {
+    name: 'Наименование', description: 'Описание', technique: 'Техника', dating: 'Датировка',
+    length: 'Длина', width: 'Ширина', height: 'Высота', weight: 'Масса',
+    place_of_creation: 'Место создания', author: 'Автор', notes: 'Примечания',
+    category_id: 'Категория', storage_location_id: 'Место хранения', condition_id: 'Сохранность',
+    acquisition_method_id: 'Способ поступления', acquisition_source: 'Источник поступления',
+    acquisition_date: 'Дата поступления', is_deleted: 'Статус (архив)',
+    inventory_number: 'Инвентарный номер',
+  };
+
   const historyColumns = [
-    { title: 'Поле', dataIndex: 'field_name', key: 'field' },
+    { title: 'Поле', dataIndex: 'field_name', key: 'field', render: (v: string) => FIELD_LABELS[v] || v },
     { title: 'Было', dataIndex: 'old_value', key: 'old', ellipsis: true },
     { title: 'Стало', dataIndex: 'new_value', key: 'new', ellipsis: true },
     { title: 'Пользователь', key: 'user', render: (_: any, r: any) => r.user?.full_name },
@@ -42,7 +52,7 @@ export default function ItemViewPage() {
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/items')}>Назад</Button>
         {canEdit && <Button type="primary" icon={<EditOutlined />} onClick={() => navigate(`/items/${id}/edit`)}>Редактировать</Button>}
         <Button icon={<HistoryOutlined />} onClick={loadHistory}>История изменений</Button>
-        {canEdit && <Button icon={<FilePdfOutlined />} onClick={() => {
+        <Button icon={<FilePdfOutlined />} onClick={() => {
           api.get(`/reports/item-card/${id}`, { responseType: 'blob' }).then((res) => {
             const link = document.createElement('a');
             link.href = URL.createObjectURL(res.data);
@@ -50,7 +60,7 @@ export default function ItemViewPage() {
             link.click();
             URL.revokeObjectURL(link.href);
           });
-        }}>Скачать PDF</Button>}
+        }}>Скачать PDF</Button>
       </Space>
 
       <Card style={{ marginBottom: 16 }}>
@@ -96,7 +106,8 @@ export default function ItemViewPage() {
 
       {showHistory && (
         <Card title="История изменений">
-          <Table dataSource={history} columns={historyColumns} rowKey="id" size="small" pagination={{ pageSize: 20 }} />
+          <Table dataSource={history} columns={historyColumns} rowKey="id" size="small"
+            pagination={{ pageSize: 20, showSizeChanger: true, pageSizeOptions: ['10', '20', '50'], showTotal: (t: number) => `Всего: ${t}` }} />
         </Card>
       )}
     </div>

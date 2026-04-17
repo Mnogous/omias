@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Table, Button, Input, Select, Space, Tag, Typography, message, Popconfirm, DatePicker, Row, Col, Card } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, UndoOutlined, SearchOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -20,13 +20,17 @@ export default function ItemsPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(25);
+  const [perPage, setPerPage] = useState(20);
   const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [categoryId, setCategoryId] = useState<number | undefined>();
   const [locationId, setLocationId] = useState<number | undefined>();
   const [conditionId, setConditionId] = useState<number | undefined>();
   const [dateRange, setDateRange] = useState<[string, string] | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
+  const [sortBy, setSortBy] = useState<string>('id');
+  const [sortOrder, setSortOrder] = useState<string>('desc');
   const [categories, setCategories] = useState<DictItem[]>([]);
   const [locations, setLocations] = useState<DictItem[]>([]);
   const [conditions, setConditions] = useState<DictItem[]>([]);
@@ -40,7 +44,7 @@ export default function ItemsPage() {
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, string | number | boolean> = { page, per_page: perPage, show_deleted: showDeleted };
+      const params: Record<string, string | number | boolean> = { page, per_page: perPage, show_deleted: showDeleted, sort_by: sortBy, sort_order: sortOrder };
       if (search) params.search = search;
       if (categoryId) params.category_id = categoryId;
       if (locationId) params.storage_location_id = locationId;
@@ -55,7 +59,7 @@ export default function ItemsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, perPage, search, categoryId, locationId, conditionId, dateRange, showDeleted]);
+  }, [page, perPage, search, categoryId, locationId, conditionId, dateRange, showDeleted, sortBy, sortOrder]);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
@@ -75,8 +79,8 @@ export default function ItemsPage() {
   const canDelete = user?.role === 'admin' || user?.role === 'keeper';
 
   const columns = [
-    { title: 'Инв. №', dataIndex: 'inventory_number', key: 'inv', width: 120 },
-    { title: 'Наименование', dataIndex: 'name', key: 'name', ellipsis: true },
+    { title: 'Инв. №', dataIndex: 'inventory_number', key: 'inv', width: 120, sorter: true },
+    { title: 'Наименование', dataIndex: 'name', key: 'name', ellipsis: true, sorter: true },
     {
       title: 'Категория', key: 'category', width: 150,
       render: (_: unknown, r: Record<string, any>) => r.category?.name || '—',
@@ -90,7 +94,7 @@ export default function ItemsPage() {
       render: (_: unknown, r: Record<string, any>) => r.condition?.name || '—',
     },
     {
-      title: 'Дата пост.', key: 'date', width: 110,
+      title: 'Дата пост.', key: 'date', width: 110, sorter: true,
       render: (_: unknown, r: Record<string, any>) => r.acquisition_date || '—',
     },
     {
@@ -103,11 +107,11 @@ export default function ItemsPage() {
       render: (_: unknown, r: Record<string, any>) => (
         <Space size="small">
           <Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/items/${r.id}`)} />
-          {canEdit && !r.is_deleted && (
+          {canEdit && (
             <Button size="small" icon={<EditOutlined />} onClick={() => navigate(`/items/${r.id}/edit`)} />
           )}
           {canDelete && !r.is_deleted && (
-            <Popconfirm title="Переместить в архив?" onConfirm={() => handleDelete(r.id)}>
+            <Popconfirm title="Переместить в архив?" okText="Да" cancelText="Отмена" onConfirm={() => handleDelete(r.id)}>
               <Button size="small" danger icon={<DeleteOutlined />} />
             </Popconfirm>
           )}
@@ -134,11 +138,20 @@ export default function ItemsPage() {
         <Row gutter={[12, 12]}>
           <Col span={6}>
             <Input
-              placeholder="Поиск..."
+              placeholder="Поиск (от 3 символов)..."
               prefix={<SearchOutlined />}
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              value={searchInput}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSearchInput(val);
+                clearTimeout(searchTimer.current);
+                searchTimer.current = setTimeout(() => {
+                  setSearch(val.length >= 3 ? val : '');
+                  setPage(1);
+                }, 300);
+              }}
               allowClear
+              onClear={() => { setSearchInput(''); setSearch(''); setPage(1); }}
             />
           </Col>
           <Col span={4}>
@@ -173,6 +186,7 @@ export default function ItemsPage() {
           </Col>
           <Col span={4}>
             <RangePicker
+              placeholder={['Начало', 'Конец']}
               style={{ width: '100%' }}
               onChange={(dates) => {
                 if (dates && dates[0] && dates[1]) {
@@ -202,6 +216,18 @@ export default function ItemsPage() {
         rowKey="id"
         loading={loading}
         scroll={{ x: 1000 }}
+        locale={{ emptyText: 'Предметы не найдены' }}
+        onChange={(_pagination, _filters, sorter: any) => {
+          if (sorter && sorter.column) {
+            const fieldMap: Record<string, string> = { inv: 'inventory_number', name: 'name', date: 'acquisition_date' };
+            setSortBy(fieldMap[sorter.columnKey] || 'id');
+            setSortOrder(sorter.order === 'ascend' ? 'asc' : 'desc');
+          } else {
+            setSortBy('id');
+            setSortOrder('desc');
+          }
+          setPage(1);
+        }}
         pagination={{
           current: page,
           pageSize: perPage,

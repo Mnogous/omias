@@ -46,7 +46,7 @@ def _track_changes(db: Session, item: MuseumItem, data: dict, user_id: int):
 @router.get("/", response_model=ItemListResponse)
 def list_items(
     page: int = Query(1, ge=1),
-    per_page: int = Query(25, ge=1, le=100),
+    per_page: int = Query(20, ge=1, le=100),
     search: str | None = None,
     category_id: int | None = None,
     storage_location_id: int | None = None,
@@ -177,6 +177,10 @@ def delete_item(item_id: int, db: Session = Depends(get_db), user: User = Depend
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Предмет не найден")
     item.is_deleted = True
+    db.add(ItemHistory(
+        item_id=item.id, user_id=user.id, field_name="is_deleted",
+        old_value="false", new_value="true",
+    ))
     db.commit()
     log_action(db, user.id, "delete", "item", item.id, f"Удалён предмет: {item.name}")
     return {"detail": "Предмет перемещён в архив"}
@@ -188,6 +192,10 @@ def restore_item(item_id: int, db: Session = Depends(get_db), user: User = Depen
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Предмет не найден в архиве")
     item.is_deleted = False
+    db.add(ItemHistory(
+        item_id=item.id, user_id=user.id, field_name="is_deleted",
+        old_value="true", new_value="false",
+    ))
     db.commit()
     log_action(db, user.id, "restore", "item", item.id, f"Восстановлен предмет: {item.name}")
     return {"detail": "Предмет восстановлен"}

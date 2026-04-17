@@ -15,8 +15,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_role
-from app.models.user import User, UserRole
+from app.core.deps import get_current_user
+from app.models.user import User
 from app.models.item import MuseumItem
 from app.models.dictionary import Category
 
@@ -52,8 +52,10 @@ def _get_styles():
 @router.get("/inventory-book")
 def inventory_book(
     category_id: int | None = None,
+    condition_id: int | None = None,
+    storage_location_id: int | None = None,
     db: Session = Depends(get_db),
-    user: User = Depends(require_role(UserRole.admin, UserRole.keeper, UserRole.researcher)),
+    user: User = Depends(get_current_user),
 ):
     styles, font_name = _get_styles()
     buffer = io.BytesIO()
@@ -66,6 +68,10 @@ def inventory_book(
     q = db.query(MuseumItem).filter(MuseumItem.is_deleted == False)
     if category_id:
         q = q.filter(MuseumItem.category_id == category_id)
+    if condition_id:
+        q = q.filter(MuseumItem.condition_id == condition_id)
+    if storage_location_id:
+        q = q.filter(MuseumItem.storage_location_id == storage_location_id)
     items = q.order_by(MuseumItem.inventory_number).all()
 
     data = [["№", "Инв. номер", "Наименование", "Категория", "Дата пост.", "Место хр."]]
@@ -96,7 +102,7 @@ def inventory_book(
 
 
 @router.get("/item-card/{item_id}")
-def item_card(item_id: int, db: Session = Depends(get_db), user: User = Depends(require_role(UserRole.admin, UserRole.keeper, UserRole.researcher))):
+def item_card(item_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     styles, font_name = _get_styles()
     item = db.query(MuseumItem).filter(MuseumItem.id == item_id).first()
     if not item:
@@ -146,6 +152,10 @@ def item_card(item_id: int, db: Session = Depends(get_db), user: User = Depends(
 
 @router.get("/statistics")
 def statistics(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    from datetime import datetime, timedelta, timezone
+    from app.models.user import User as UserModel, UserRole
+    from app.models.audit import AuditLog
+
     total = db.query(func.count(MuseumItem.id)).filter(MuseumItem.is_deleted == False).scalar()
     by_category = (
         db.query(Category.name, func.count(MuseumItem.id))
@@ -154,10 +164,40 @@ def statistics(db: Session = Depends(get_db), user: User = Depends(get_current_u
         .group_by(Category.name)
         .all()
     )
-    return {
+
+    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    recent_items_count = db.query(func.count(MuseumItem.id)).filter(
+        MuseumItem.is_deleted == False,
+        MuseumItem.created_at >= week_ago,
+    ).scalar()
+
+    result = {
         "total_items": total,
         "by_category": [{"category": name, "count": cnt} for name, cnt in by_category],
+        "recent_items_count": recent_items_count,
     }
+
+    if user.role == UserRole.admin:
+        result["total_users"] = db.query(func.count(UserModel.id)).scalar()
+        recent_actions = (
+            db.query(AuditLog)
+            .join(UserModel, AuditLog.user_id == UserModel.id)
+            .order_by(AuditLog.created_at.desc())
+            .limit(10)
+            .all()
+        )
+        result["recent_actions"] = [
+            {
+                "id": a.id,
+                "user": a.user.full_name if a.user else "—",
+                "action": a.action,
+                "details": a.details,
+                "created_at": a.created_at.isoformat() if a.created_at else None,
+            }
+            for a in recent_actions
+        ]
+
+    return result
 
 
 @router.get("/acquisitions")
@@ -165,7 +205,7 @@ def acquisitions_report(
     date_from: date,
     date_to: date,
     db: Session = Depends(get_db),
-    user: User = Depends(require_role(UserRole.admin, UserRole.keeper, UserRole.researcher)),
+    user: User = Depends(get_current_user),
 ):
     items = (
         db.query(MuseumItem)
@@ -188,12 +228,18 @@ def acquisitions_report(
 @router.get("/export-csv")
 def export_csv(
     category_id: int | None = None,
+    condition_id: int | None = None,
+    storage_location_id: int | None = None,
     db: Session = Depends(get_db),
-    user: User = Depends(require_role(UserRole.admin, UserRole.keeper, UserRole.researcher)),
+    user: User = Depends(get_current_user),
 ):
     q = db.query(MuseumItem).filter(MuseumItem.is_deleted == False)
     if category_id:
         q = q.filter(MuseumItem.category_id == category_id)
+    if condition_id:
+        q = q.filter(MuseumItem.condition_id == condition_id)
+    if storage_location_id:
+        q = q.filter(MuseumItem.storage_location_id == storage_location_id)
     items = q.order_by(MuseumItem.inventory_number).all()
 
     output = io.StringIO()

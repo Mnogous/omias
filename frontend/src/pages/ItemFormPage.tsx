@@ -4,6 +4,7 @@ import { UploadOutlined, DeleteOutlined, ArrowLeftOutlined } from '@ant-design/i
 import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import api from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -13,6 +14,8 @@ interface DictItem { id: number; name: string; }
 export default function ItemFormPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canDeleteImage = user?.role === 'admin' || user?.role === 'keeper';
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<DictItem[]>([]);
@@ -119,7 +122,7 @@ export default function ItemFormPage() {
                 </Col>
                 <Col span={12}>
                   <Form.Item name="material_ids" label="Материал">
-                    <Select mode="multiple" allowClear options={materials.map((m) => ({ value: m.id, label: m.name }))} />
+                    <Select mode="multiple" allowClear showSearch={false} options={materials.map((m) => ({ value: m.id, label: m.name }))} />
                   </Form.Item>
                 </Col>
               </Row>
@@ -202,9 +205,11 @@ export default function ItemFormPage() {
                   {images.map((img) => (
                     <div key={img.id} style={{ position: 'relative' }}>
                       <Image width={80} height={80} src={`http://localhost:8000${img.file_path}`} style={{ objectFit: 'cover', borderRadius: 4 }} />
-                      <Popconfirm title="Удалить?" onConfirm={() => handleDeleteImage(img.id)}>
-                        <Button size="small" danger icon={<DeleteOutlined />} style={{ position: 'absolute', top: 0, right: 0 }} />
-                      </Popconfirm>
+                      {canDeleteImage && (
+                        <Popconfirm title="Удалить изображение?" okText="Да" cancelText="Отмена" onConfirm={() => handleDeleteImage(img.id)}>
+                          <Button size="small" danger icon={<DeleteOutlined />} style={{ position: 'absolute', top: 0, right: 0 }} />
+                        </Popconfirm>
+                      )}
                     </div>
                   ))}
                 </Space>

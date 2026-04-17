@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -73,7 +74,15 @@ def delete_dict(dict_type: str, entry_id: int, db: Session = Depends(get_db), us
     entry = db.query(model).filter(model.id == entry_id).first()
     if not entry:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Запись не найдена")
-    db.delete(entry)
+    try:
+        db.delete(entry)
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Невозможно удалить «{entry.name}»: существуют связанные предметы"
+        )
     db.commit()
     log_action(db, user.id, "delete", dict_type, entry_id, f"Удалено: {entry.name}")
     return {"detail": "Удалено"}

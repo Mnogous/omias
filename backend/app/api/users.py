@@ -47,11 +47,25 @@ def update_user(user_id: int, data: UserUpdate, db: Session = Depends(get_db), u
     target = db.query(User).filter(User.id == user_id).first()
     if not target:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден")
-    for field, value in data.model_dump(exclude_unset=True).items():
+    update_data = data.model_dump(exclude_unset=True)
+    if target.id == user.id:
+        if "is_active" in update_data and not update_data["is_active"]:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Нельзя заблокировать свою учётную запись")
+        if "role" in update_data and update_data["role"] != user.role.value:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Нельзя изменить свою роль")
+    was_active = target.is_active
+    old_role = target.role
+    for field, value in update_data.items():
         setattr(target, field, value)
     db.commit()
     db.refresh(target)
-    log_action(db, user.id, "update", "user", target.id, f"Обновлён пользователь {target.username}")
+    if "is_active" in update_data and was_active != target.is_active:
+        action_detail = f"Заблокирован пользователь {target.username}" if not target.is_active else f"Разблокирован пользователь {target.username}"
+        log_action(db, user.id, "update", "user", target.id, action_detail)
+    elif "role" in update_data and old_role != target.role:
+        log_action(db, user.id, "update", "user", target.id, f"Изменена роль пользователя {target.username}: {old_role.value} → {target.role.value}")
+    else:
+        log_action(db, user.id, "update", "user", target.id, f"Обновлён пользователь {target.username}")
     return target
 
 

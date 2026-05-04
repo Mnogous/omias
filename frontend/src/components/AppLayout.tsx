@@ -34,10 +34,8 @@ export default function AppLayout() {
     { key: '/items', icon: <DatabaseOutlined />, label: 'Каталог' },
   ];
 
-  if (user?.role === 'admin' || user?.role === 'keeper' || user?.role === 'researcher') {
-    menuItems.push(
-    { key: '/reports', icon: <FileTextOutlined />, label: 'Отчёты' },
-    );
+  if (user?.role !== 'guest') {
+    menuItems.push({ key: '/reports', icon: <FileTextOutlined />, label: 'Отчёты' });
   }
 
   if (user?.role === 'admin') {

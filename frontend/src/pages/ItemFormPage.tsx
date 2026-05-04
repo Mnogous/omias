@@ -15,12 +15,13 @@ export default function ItemFormPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canDeleteImage = user?.role === 'admin' || user?.role === 'keeper';
+  const canDeleteImage = user?.role === 'admin' || user?.role === 'keeper' || user?.role === 'researcher';
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<DictItem[]>([]);
   const [materials, setMaterials] = useState<DictItem[]>([]);
   const [locations, setLocations] = useState<DictItem[]>([]);
+  const [places, setPlaces] = useState<DictItem[]>([]);
   const [conditions, setConditions] = useState<DictItem[]>([]);
   const [methods, setMethods] = useState<DictItem[]>([]);
   const [images, setImages] = useState<any[]>([]);
@@ -31,12 +32,14 @@ export default function ItemFormPage() {
       api.get('/dictionaries/categories'),
       api.get('/dictionaries/materials'),
       api.get('/dictionaries/storage_locations'),
+      api.get('/dictionaries/storage_places'),
       api.get('/dictionaries/conditions'),
       api.get('/dictionaries/acquisition_methods'),
-    ]).then(([c, m, l, co, am]) => {
+    ]).then(([c, m, l, sp, co, am]) => {
       setCategories(c.data);
       setMaterials(m.data);
       setLocations(l.data);
+      setPlaces(sp.data);
       setConditions(co.data);
       setMethods(am.data);
     });
@@ -48,6 +51,7 @@ export default function ItemFormPage() {
           ...d,
           category_id: d.category?.id,
           storage_location_id: d.storage_location?.id,
+          storage_place_id: d.storage_place?.id,
           condition_id: d.condition?.id,
           acquisition_method_id: d.acquisition_method?.id,
           material_ids: d.materials?.map((m: DictItem) => m.id) || [],
@@ -158,6 +162,13 @@ export default function ItemFormPage() {
                   </Form.Item>
                 </Col>
                 <Col span={6}>
+                  <Form.Item name="depth" label="Глубина (мм)">
+                    <InputNumber style={{ width: '100%' }} min={0} />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Row gutter={16}>
+                <Col span={6}>
                   <Form.Item name="weight" label="Масса (г)">
                     <InputNumber style={{ width: '100%' }} min={0} />
                   </Form.Item>
@@ -194,8 +205,14 @@ export default function ItemFormPage() {
               <Form.Item name="storage_location_id" label="Место хранения">
                 <Select allowClear options={locations.map((l) => ({ value: l.id, label: l.name }))} />
               </Form.Item>
+              <Form.Item name="storage_place_id" label="Место размещения (витрина/шкаф)">
+                <Select allowClear options={places.map((p) => ({ value: p.id, label: p.name }))} />
+              </Form.Item>
               <Form.Item name="condition_id" label="Состояние сохранности">
                 <Select allowClear options={conditions.map((c) => ({ value: c.id, label: c.name }))} />
+              </Form.Item>
+              <Form.Item name="condition_notes" label="Расшифровка состояния">
+                <TextArea rows={2} />
               </Form.Item>
             </Card>
 

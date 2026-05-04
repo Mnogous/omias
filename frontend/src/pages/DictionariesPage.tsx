@@ -9,6 +9,7 @@ const DICT_TYPES = [
   { key: 'categories', label: 'Категории' },
   { key: 'materials', label: 'Материалы' },
   { key: 'storage_locations', label: 'Места хранения' },
+  { key: 'storage_places', label: 'Места размещения' },
   { key: 'conditions', label: 'Состояния сохранности' },
   { key: 'acquisition_methods', label: 'Способы поступления' },
 ];

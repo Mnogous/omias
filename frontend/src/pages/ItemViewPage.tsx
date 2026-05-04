@@ -26,85 +26,127 @@ export default function ItemViewPage() {
 
   if (!item) return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />;
 
+  const isGuest = user?.role === 'guest';
   const canEdit = user?.role === 'admin' || user?.role === 'keeper' || user?.role === 'researcher';
 
   const FIELD_LABELS: Record<string, string> = {
     name: 'Наименование', description: 'Описание', technique: 'Техника', dating: 'Датировка',
-    length: 'Длина', width: 'Ширина', height: 'Высота', weight: 'Масса',
+    length: 'Длина', width: 'Ширина', height: 'Высота', depth: 'Глубина', weight: 'Масса',
     place_of_creation: 'Место создания', author: 'Автор', notes: 'Примечания',
-    category_id: 'Категория', storage_location_id: 'Место хранения', condition_id: 'Сохранность',
+    category_id: 'Категория', storage_location_id: 'Место хранения', storage_place_id: 'Место размещения',
+    condition_id: 'Сохранность', condition_notes: 'Расшифровка состояния',
     acquisition_method_id: 'Способ поступления', acquisition_source: 'Источник поступления',
     acquisition_date: 'Дата поступления', is_deleted: 'Статус (архив)',
     inventory_number: 'Инвентарный номер',
+    material_ids: 'Материал',
+    image_added: 'Добавлено изображение', image_removed: 'Удалено изображение',
+  };
+
+  const formatHistoryValue = (field: string, value: string | null) => {
+    if (value === null || value === undefined || value === '') return '—';
+    if (field === 'is_deleted') {
+      if (value === 'true') return 'В архиве';
+      if (value === 'false') return 'Активный';
+    }
+    return value;
   };
 
   const historyColumns = [
     { title: 'Поле', dataIndex: 'field_name', key: 'field', render: (v: string) => FIELD_LABELS[v] || v },
-    { title: 'Было', dataIndex: 'old_value', key: 'old', ellipsis: true },
-    { title: 'Стало', dataIndex: 'new_value', key: 'new', ellipsis: true },
+    { title: 'Было', dataIndex: 'old_value', key: 'old', ellipsis: true,
+      render: (v: string | null, r: any) => formatHistoryValue(r.field_name, v) },
+    { title: 'Стало', dataIndex: 'new_value', key: 'new', ellipsis: true,
+      render: (v: string | null, r: any) => formatHistoryValue(r.field_name, v) },
     { title: 'Пользователь', key: 'user', render: (_: any, r: any) => r.user?.full_name },
     { title: 'Дата', dataIndex: 'changed_at', key: 'date', render: (v: string) => new Date(v).toLocaleString('ru-RU') },
   ];
+
+  const dimensionsParts = [
+    item.length || '—',
+    item.width || '—',
+    item.height || '—',
+    item.depth || '—',
+  ];
+  const dimensionsLabel = `${dimensionsParts.join(' × ')} мм`;
+
+  const guestImageProps = isGuest
+    ? {
+        onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+        draggable: false,
+        style: { objectFit: 'cover' as const, borderRadius: 4, userSelect: 'none' as const, WebkitUserSelect: 'none' as const, pointerEvents: 'auto' as const },
+      }
+    : { style: { objectFit: 'cover' as const, borderRadius: 4 } };
 
   return (
     <div>
       <Space style={{ marginBottom: 16 }}>
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/items')}>Назад</Button>
         {canEdit && <Button type="primary" icon={<EditOutlined />} onClick={() => navigate(`/items/${id}/edit`)}>Редактировать</Button>}
-        <Button icon={<HistoryOutlined />} onClick={loadHistory}>История изменений</Button>
-        <Button icon={<FilePdfOutlined />} onClick={() => {
-          api.get(`/reports/item-card/${id}`, { responseType: 'blob' }).then((res) => {
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(res.data);
-            link.download = `item_${id}.pdf`;
-            link.click();
-            URL.revokeObjectURL(link.href);
-          });
-        }}>Скачать PDF</Button>
+        {!isGuest && <Button icon={<HistoryOutlined />} onClick={loadHistory}>История изменений</Button>}
+        {!isGuest && (
+          <Button icon={<FilePdfOutlined />} onClick={() => {
+            api.get(`/reports/item-card/${id}`, { responseType: 'blob' }).then((res) => {
+              const link = document.createElement('a');
+              link.href = URL.createObjectURL(res.data);
+              link.download = `item_${id}.pdf`;
+              link.click();
+              URL.revokeObjectURL(link.href);
+            });
+          }}>Скачать PDF</Button>
+        )}
       </Space>
 
       <Card style={{ marginBottom: 16 }}>
         <Title level={4}>
           {item.name}
-          {item.is_deleted && <Tag color="red" style={{ marginLeft: 8 }}>Архив</Tag>}
+          {item.is_deleted && !isGuest && <Tag color="red" style={{ marginLeft: 8 }}>Архив</Tag>}
         </Title>
         <Descriptions bordered column={2} size="small">
-          <Descriptions.Item label="Инвентарный номер">{item.inventory_number}</Descriptions.Item>
+          {!isGuest && <Descriptions.Item label="Инвентарный номер">{item.inventory_number}</Descriptions.Item>}
           <Descriptions.Item label="Категория">{item.category?.name || '—'}</Descriptions.Item>
           <Descriptions.Item label="Материал" span={2}>
-            {item.materials?.map((m: any) => <Tag key={m.id}>{m.name}</Tag>) || '—'}
+            {item.materials?.length ? item.materials.map((m: any) => <Tag key={m.id}>{m.name}</Tag>) : '—'}
           </Descriptions.Item>
           <Descriptions.Item label="Описание" span={2}>{item.description || '—'}</Descriptions.Item>
           <Descriptions.Item label="Техника">{item.technique || '—'}</Descriptions.Item>
           <Descriptions.Item label="Датировка">{item.dating || '—'}</Descriptions.Item>
-          <Descriptions.Item label="Размеры (Д×Ш×В)">{`${item.length || '—'} × ${item.width || '—'} × ${item.height || '—'} мм`}</Descriptions.Item>
+          <Descriptions.Item label="Размеры (Д×Ш×В×Гл)">{dimensionsLabel}</Descriptions.Item>
           <Descriptions.Item label="Масса">{item.weight ? `${item.weight} г` : '—'}</Descriptions.Item>
           <Descriptions.Item label="Место создания">{item.place_of_creation || '—'}</Descriptions.Item>
           <Descriptions.Item label="Автор">{item.author || '—'}</Descriptions.Item>
-          <Descriptions.Item label="Способ поступления">{item.acquisition_method?.name || '—'}</Descriptions.Item>
-          <Descriptions.Item label="Источник поступления">{item.acquisition_source || '—'}</Descriptions.Item>
-          <Descriptions.Item label="Дата поступления">{item.acquisition_date || '—'}</Descriptions.Item>
-          <Descriptions.Item label="Место хранения">{item.storage_location?.name || '—'}</Descriptions.Item>
+          {!isGuest && <Descriptions.Item label="Способ поступления">{item.acquisition_method?.name || '—'}</Descriptions.Item>}
+          {!isGuest && <Descriptions.Item label="Источник поступления">{item.acquisition_source || '—'}</Descriptions.Item>}
+          {!isGuest && <Descriptions.Item label="Дата поступления">{item.acquisition_date || '—'}</Descriptions.Item>}
+          {!isGuest && <Descriptions.Item label="Место хранения">{item.storage_location?.name || '—'}</Descriptions.Item>}
+          {!isGuest && <Descriptions.Item label="Место размещения">{item.storage_place?.name || '—'}</Descriptions.Item>}
           <Descriptions.Item label="Сохранность">{item.condition?.name || '—'}</Descriptions.Item>
-          <Descriptions.Item label="Примечания" span={2}>{item.notes || '—'}</Descriptions.Item>
-          <Descriptions.Item label="Создан">{new Date(item.created_at).toLocaleString('ru-RU')}</Descriptions.Item>
-          <Descriptions.Item label="Обновлён">{new Date(item.updated_at).toLocaleString('ru-RU')}</Descriptions.Item>
+          {!isGuest && <Descriptions.Item label="Расшифровка состояния" span={2}>{item.condition_notes || '—'}</Descriptions.Item>}
+          {!isGuest && <Descriptions.Item label="Примечания" span={2}>{item.notes || '—'}</Descriptions.Item>}
+          {!isGuest && <Descriptions.Item label="Создан">{new Date(item.created_at).toLocaleString('ru-RU')}</Descriptions.Item>}
+          {!isGuest && <Descriptions.Item label="Обновлён">{new Date(item.updated_at).toLocaleString('ru-RU')}</Descriptions.Item>}
         </Descriptions>
       </Card>
 
       {item.images?.length > 0 && (
         <Card title="Изображения" style={{ marginBottom: 16 }}>
           <Image.PreviewGroup>
-            <Space wrap>
+            <Space wrap onContextMenu={isGuest ? (e) => e.preventDefault() : undefined}>
               {item.images.map((img: any) => (
-                <Image key={img.id} width={150} height={150} src={`http://localhost:8000${img.file_path}`} style={{ objectFit: 'cover', borderRadius: 4 }} />
+                <Image
+                  key={img.id}
+                  width={150}
+                  height={150}
+                  src={`http://localhost:8000${img.file_path}`}
+                  {...guestImageProps}
+                  preview={isGuest ? { toolbarRender: () => null } : undefined}
+                />
               ))}
             </Space>
           </Image.PreviewGroup>
         </Card>
       )}
 
-      {showHistory && (
+      {showHistory && !isGuest && (
         <Card title="История изменений">
           <Table dataSource={history} columns={historyColumns} rowKey="id" size="small"
             pagination={{ pageSize: 20, showSizeChanger: true, pageSizeOptions: ['10', '20', '50'], showTotal: (t: number) => `Всего: ${t}` }} />

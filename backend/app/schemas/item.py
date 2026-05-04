@@ -23,6 +23,7 @@ class ItemCreate(BaseModel):
     length: float | None = None
     width: float | None = None
     height: float | None = None
+    depth: float | None = None
     weight: float | None = None
     dating: str | None = None
     place_of_creation: str | None = None
@@ -31,7 +32,9 @@ class ItemCreate(BaseModel):
     acquisition_source: str | None = None
     acquisition_date: date | None = None
     storage_location_id: int | None = None
+    storage_place_id: int | None = None
     condition_id: int | None = None
+    condition_notes: str | None = None
     notes: str | None = None
     material_ids: list[int] = []
 
@@ -50,6 +53,7 @@ class ItemResponse(BaseModel):
     length: float | None = None
     width: float | None = None
     height: float | None = None
+    depth: float | None = None
     weight: float | None = None
     dating: str | None = None
     place_of_creation: str | None = None
@@ -58,7 +62,9 @@ class ItemResponse(BaseModel):
     acquisition_source: str | None = None
     acquisition_date: date | None = None
     storage_location: DictionaryResponse | None = None
+    storage_place: DictionaryResponse | None = None
     condition: DictionaryResponse | None = None
+    condition_notes: str | None = None
     notes: str | None = None
     materials: list[DictionaryResponse] = []
     images: list[ItemImageResponse] = []

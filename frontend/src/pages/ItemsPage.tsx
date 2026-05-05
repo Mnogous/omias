@@ -198,15 +198,17 @@ export default function ItemsPage() {
               }}
             />
           </Col>
-          <Col span={2}>
-            <Button
-              type={showDeleted ? 'primary' : 'default'}
-              onClick={() => { setShowDeleted(!showDeleted); setPage(1); }}
-              block
-            >
-              Архив
-            </Button>
-          </Col>
+          {user?.role !== 'guest' && (
+            <Col span={2}>
+              <Button
+                type={showDeleted ? 'primary' : 'default'}
+                onClick={() => { setShowDeleted(!showDeleted); setPage(1); }}
+                block
+              >
+                Архив
+              </Button>
+            </Col>
+          )}
         </Row>
       </Card>
 
@@ -217,7 +219,8 @@ export default function ItemsPage() {
         loading={loading}
         scroll={{ x: 1000 }}
         locale={{ emptyText: 'Предметы не найдены' }}
-        onChange={(_pagination, _filters, sorter: any) => {
+        onChange={(_pagination, _filters, sorter: any, extra: any) => {
+          if (extra?.action !== 'sort') return;
           if (sorter && sorter.column) {
             const fieldMap: Record<string, string> = { inv: 'inventory_number', name: 'name', date: 'acquisition_date' };
             setSortBy(fieldMap[sorter.columnKey] || 'id');

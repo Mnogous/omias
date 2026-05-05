@@ -22,6 +22,12 @@ class StorageLocation(Base):
     name: Mapped[str] = mapped_column(String(255), unique=True)
 
 
+class StoragePlace(Base):
+    __tablename__ = "storage_places"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), unique=True)
+
+
 class Condition(Base):
     __tablename__ = "conditions"
     id: Mapped[int] = mapped_column(primary_key=True)

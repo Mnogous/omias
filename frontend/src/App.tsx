@@ -26,6 +26,12 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function NonGuestRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (user?.role === 'guest') return <Navigate to="/" />;
+  return <>{children}</>;
+}
+
 function AppRoutes() {
   const { user, loading } = useAuth();
   if (loading) return <Spin size="large" style={{ display: 'block', margin: '200px auto' }} />;
@@ -39,7 +45,7 @@ function AppRoutes() {
         <Route path="/items/new" element={<ItemFormPage />} />
         <Route path="/items/:id" element={<ItemViewPage />} />
         <Route path="/items/:id/edit" element={<ItemFormPage />} />
-        <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/reports" element={<NonGuestRoute><ReportsPage /></NonGuestRoute>} />
         <Route path="/change-password" element={<ChangePasswordPage />} />
         <Route path="/dictionaries" element={<AdminRoute><DictionariesPage /></AdminRoute>} />
         <Route path="/users" element={<AdminRoute><UsersPage /></AdminRoute>} />

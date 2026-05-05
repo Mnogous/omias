@@ -11,7 +11,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user, require_role
 from app.models.user import User, UserRole
 from app.models.item import MuseumItem, ItemImage, ItemHistory, item_materials
-from app.models.dictionary import Material, Category, StorageLocation, Condition
+from app.models.dictionary import Material, Category, StorageLocation, StoragePlace, Condition, AcquisitionMethod
 from app.models.settings import SystemSetting
 from app.schemas.item import ItemCreate, ItemUpdate, ItemResponse, ItemListResponse, ItemHistoryResponse
 from app.services.audit import log_action
@@ -28,19 +28,52 @@ def _next_inventory_number(db: Session) -> str:
     return template.format(number=last + 1)
 
 
+DICT_FK_MODELS = {
+    "category_id": Category,
+    "storage_location_id": StorageLocation,
+    "storage_place_id": StoragePlace,
+    "condition_id": Condition,
+    "acquisition_method_id": AcquisitionMethod,
+}
+
+
+def _dict_name(db: Session, model, entry_id) -> str | None:
+    if entry_id is None:
+        return None
+    entry = db.query(model).filter(model.id == entry_id).first()
+    return entry.name if entry else str(entry_id)
+
+
+def _record_history(db: Session, item_id: int, user_id: int, field_name: str, old_value, new_value):
+    db.add(ItemHistory(
+        item_id=item_id,
+        user_id=user_id,
+        field_name=field_name,
+        old_value=str(old_value) if old_value is not None else None,
+        new_value=str(new_value) if new_value is not None else None,
+    ))
+
+
 def _track_changes(db: Session, item: MuseumItem, data: dict, user_id: int):
     for field, new_val in data.items():
         if field == "material_ids":
+            old_ids = sorted(m.id for m in item.materials)
+            new_ids = sorted(new_val or [])
+            if old_ids == new_ids:
+                continue
+            old_names = ", ".join(m.name for m in sorted(item.materials, key=lambda x: x.id)) or None
+            new_materials = db.query(Material).filter(Material.id.in_(new_ids)).order_by(Material.id).all() if new_ids else []
+            new_names = ", ".join(m.name for m in new_materials) or None
+            _record_history(db, item.id, user_id, "material_ids", old_names, new_names)
             continue
         old_val = getattr(item, field, None)
-        if str(old_val) != str(new_val):
-            db.add(ItemHistory(
-                item_id=item.id,
-                user_id=user_id,
-                field_name=field,
-                old_value=str(old_val) if old_val is not None else None,
-                new_value=str(new_val) if new_val is not None else None,
-            ))
+        if str(old_val) == str(new_val):
+            continue
+        if field in DICT_FK_MODELS:
+            model = DICT_FK_MODELS[field]
+            _record_history(db, item.id, user_id, field, _dict_name(db, model, old_val), _dict_name(db, model, new_val))
+        else:
+            _record_history(db, item.id, user_id, field, old_val, new_val)
 
 
 @router.get("/", response_model=ItemListResponse)
@@ -59,6 +92,8 @@ def list_items(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    if user.role == UserRole.guest:
+        show_deleted = False
     q = db.query(MuseumItem)
     if not show_deleted:
         q = q.filter(MuseumItem.is_deleted == False)
@@ -109,6 +144,7 @@ def create_item(
         length=data.length,
         width=data.width,
         height=data.height,
+        depth=data.depth,
         weight=data.weight,
         dating=data.dating,
         place_of_creation=data.place_of_creation,
@@ -117,7 +153,9 @@ def create_item(
         acquisition_source=data.acquisition_source,
         acquisition_date=data.acquisition_date,
         storage_location_id=data.storage_location_id,
+        storage_place_id=data.storage_place_id,
         condition_id=data.condition_id,
+        condition_notes=data.condition_notes,
         notes=data.notes,
         created_by=user.id,
     )
@@ -138,6 +176,8 @@ def create_item(
 def get_item(item_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     item = db.query(MuseumItem).filter(MuseumItem.id == item_id).first()
     if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Предмет не найден")
+    if user.role == UserRole.guest and item.is_deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Предмет не найден")
     return item
 
@@ -179,7 +219,7 @@ def delete_item(item_id: int, db: Session = Depends(get_db), user: User = Depend
     item.is_deleted = True
     db.add(ItemHistory(
         item_id=item.id, user_id=user.id, field_name="is_deleted",
-        old_value="false", new_value="true",
+        old_value="Активный", new_value="В архиве",
     ))
     db.commit()
     log_action(db, user.id, "delete", "item", item.id, f"Удалён предмет: {item.name}")
@@ -194,7 +234,7 @@ def restore_item(item_id: int, db: Session = Depends(get_db), user: User = Depen
     item.is_deleted = False
     db.add(ItemHistory(
         item_id=item.id, user_id=user.id, field_name="is_deleted",
-        old_value="true", new_value="false",
+        old_value="В архиве", new_value="Активный",
     ))
     db.commit()
     log_action(db, user.id, "restore", "item", item.id, f"Восстановлен предмет: {item.name}")
@@ -234,6 +274,11 @@ def upload_image(
 
     image = ItemImage(item_id=item_id, file_path=f"/uploads/{item_id}/{filename}", original_name=file.filename or "image")
     db.add(image)
+    db.flush()
+    db.add(ItemHistory(
+        item_id=item_id, user_id=user.id, field_name="image_added",
+        old_value=None, new_value=image.original_name,
+    ))
     db.commit()
     db.refresh(image)
     log_action(db, user.id, "upload_image", "item", item_id, f"Загружено изображение: {file.filename}")
@@ -245,7 +290,7 @@ def delete_image(
     item_id: int,
     image_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_role(UserRole.admin, UserRole.keeper)),
+    user: User = Depends(require_role(UserRole.admin, UserRole.keeper, UserRole.researcher)),
 ):
     image = db.query(ItemImage).filter(ItemImage.id == image_id, ItemImage.item_id == item_id).first()
     if not image:
@@ -253,7 +298,12 @@ def delete_image(
     full_path = os.path.join(settings.UPLOAD_DIR, str(item_id), os.path.basename(image.file_path))
     if os.path.exists(full_path):
         os.remove(full_path)
+    original_name = image.original_name
     db.delete(image)
+    db.add(ItemHistory(
+        item_id=item_id, user_id=user.id, field_name="image_removed",
+        old_value=original_name, new_value=None,
+    ))
     db.commit()
     log_action(db, user.id, "delete_image", "item", item_id)
     return {"detail": "Изображение удалено"}
@@ -261,4 +311,6 @@ def delete_image(
 
 @router.get("/{item_id}/history", response_model=list[ItemHistoryResponse])
 def get_history(item_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if user.role == UserRole.guest:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Недостаточно прав")
     return db.query(ItemHistory).filter(ItemHistory.item_id == item_id).order_by(ItemHistory.changed_at.desc()).all()

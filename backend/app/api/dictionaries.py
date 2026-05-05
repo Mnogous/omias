@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_role
 from app.models.user import User, UserRole
-from app.models.dictionary import Category, Material, StorageLocation, Condition, AcquisitionMethod
+from app.models.dictionary import Category, Material, StorageLocation, StoragePlace, Condition, AcquisitionMethod
+from app.models.item import MuseumItem, item_materials
 from app.schemas.dictionary import DictionaryCreate, DictionaryResponse
 from app.services.audit import log_action
 
@@ -15,6 +16,7 @@ DICT_MAP = {
     "categories": Category,
     "materials": Material,
     "storage_locations": StorageLocation,
+    "storage_places": StoragePlace,
     "conditions": Condition,
     "acquisition_methods": AcquisitionMethod,
 }
@@ -23,6 +25,7 @@ DICT_NAMES = {
     "categories": "Категории",
     "materials": "Материалы",
     "storage_locations": "Места хранения",
+    "storage_places": "Места размещения",
     "conditions": "Состояния сохранности",
     "acquisition_methods": "Способы поступления",
 }
@@ -66,6 +69,16 @@ def update_dict(dict_type: str, entry_id: int, data: DictionaryCreate, db: Sessi
     return entry
 
 
+USAGE_CHECKS = {
+    "categories": lambda db, eid: db.query(MuseumItem).filter(MuseumItem.category_id == eid).first(),
+    "storage_locations": lambda db, eid: db.query(MuseumItem).filter(MuseumItem.storage_location_id == eid).first(),
+    "storage_places": lambda db, eid: db.query(MuseumItem).filter(MuseumItem.storage_place_id == eid).first(),
+    "conditions": lambda db, eid: db.query(MuseumItem).filter(MuseumItem.condition_id == eid).first(),
+    "acquisition_methods": lambda db, eid: db.query(MuseumItem).filter(MuseumItem.acquisition_method_id == eid).first(),
+    "materials": lambda db, eid: db.query(item_materials).filter(item_materials.c.material_id == eid).first(),
+}
+
+
 @router.delete("/{dict_type}/{entry_id}")
 def delete_dict(dict_type: str, entry_id: int, db: Session = Depends(get_db), user: User = Depends(require_role(UserRole.admin))):
     model = DICT_MAP.get(dict_type)
@@ -74,6 +87,12 @@ def delete_dict(dict_type: str, entry_id: int, db: Session = Depends(get_db), us
     entry = db.query(model).filter(model.id == entry_id).first()
     if not entry:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Запись не найдена")
+    check = USAGE_CHECKS.get(dict_type)
+    if check and check(db, entry_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Невозможно удалить «{entry.name}»: существуют связанные предметы",
+        )
     try:
         db.delete(entry)
         db.flush()

@@ -1,7 +1,7 @@
 from app.core.database import SessionLocal
 from app.core.security import hash_password
 from app.models.user import User, UserRole
-from app.models.dictionary import Category, Material, StorageLocation, Condition, AcquisitionMethod
+from app.models.dictionary import Category, Material, StorageLocation, StoragePlace, Condition, AcquisitionMethod
 from app.models.settings import SystemSetting
 
 db = SessionLocal()
@@ -47,8 +47,10 @@ for name in categories:
         db.add(Category(name=name))
 
 materials_list = [
-    "Бумага", "Металл", "Дерево", "Ткань", "Кожа", "Пластик",
-    "Стекло", "Керамика", "Резина", "Картон",
+    "Бумага", "Картон", "Папье-маше", "Металл", "Дерево", "Пластмасса",
+    "Стекло", "Керамика", "Фаянс", "Фарфор", "Гипс", "Камень", "Кость",
+    "Резина", "Фотоплёнка", "Видеоплёнка", "Плёнка звукозаписи",
+    "Ткань", "Текстиль", "Мех", "Кожа", "Искусственная кожа",
 ]
 for name in materials_list:
     if not db.query(Material).filter(Material.name == name).first():
@@ -61,6 +63,16 @@ locations = [
 for name in locations:
     if not db.query(StorageLocation).filter(StorageLocation.name == name).first():
         db.add(StorageLocation(name=name))
+
+places = [
+    "Витрина 1", "Витрина 2", "Витрина 3",
+    "Шкаф 1", "Шкаф 2",
+    "Стеллаж 1", "Стеллаж 2",
+    "Сейф",
+]
+for name in places:
+    if not db.query(StoragePlace).filter(StoragePlace.name == name).first():
+        db.add(StoragePlace(name=name))
 
 conditions_list = [
     "Отличное", "Хорошее", "Удовлетворительное",

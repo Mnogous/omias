@@ -14,11 +14,18 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from fastapi import HTTPException, status
+
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.item import MuseumItem
 from app.models.dictionary import Category
+
+
+def _forbid_guest(user: User):
+    if user.role == UserRole.guest:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Недостаточно прав")
 
 router = APIRouter(prefix="/reports", tags=["Отчёты"])
 
@@ -57,6 +64,7 @@ def inventory_book(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    _forbid_guest(user)
     styles, font_name = _get_styles()
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=20*mm, rightMargin=15*mm, topMargin=20*mm, bottomMargin=20*mm)
@@ -103,10 +111,10 @@ def inventory_book(
 
 @router.get("/item-card/{item_id}")
 def item_card(item_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _forbid_guest(user)
     styles, font_name = _get_styles()
     item = db.query(MuseumItem).filter(MuseumItem.id == item_id).first()
     if not item:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Предмет не найден")
 
     buffer = io.BytesIO()
@@ -123,7 +131,7 @@ def item_card(item_id: int, db: Session = Depends(get_db), user: User = Depends(
         ("Описание", item.description or "-"),
         ("Материал", ", ".join(m.name for m in item.materials) if item.materials else "-"),
         ("Техника", item.technique or "-"),
-        ("Размеры (Д×Ш×В)", f"{item.length or '-'} × {item.width or '-'} × {item.height or '-'} мм"),
+        ("Размеры (Д×Ш×В×Гл)", f"{item.length or '-'} × {item.width or '-'} × {item.height or '-'} × {item.depth or '-'} мм"),
         ("Масса", f"{item.weight} г" if item.weight else "-"),
         ("Датировка", item.dating or "-"),
         ("Место создания", item.place_of_creation or "-"),
@@ -132,7 +140,9 @@ def item_card(item_id: int, db: Session = Depends(get_db), user: User = Depends(
         ("Источник поступления", item.acquisition_source or "-"),
         ("Дата поступления", str(item.acquisition_date) if item.acquisition_date else "-"),
         ("Место хранения", item.storage_location.name if item.storage_location else "-"),
+        ("Место размещения", item.storage_place.name if item.storage_place else "-"),
         ("Сохранность", item.condition.name if item.condition else "-"),
+        ("Расшифровка состояния", item.condition_notes or "-"),
         ("Примечания", item.notes or "-"),
     ]
 
@@ -207,6 +217,7 @@ def acquisitions_report(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    _forbid_guest(user)
     items = (
         db.query(MuseumItem)
         .filter(MuseumItem.is_deleted == False, MuseumItem.acquisition_date >= date_from, MuseumItem.acquisition_date <= date_to)
@@ -233,6 +244,7 @@ def export_csv(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    _forbid_guest(user)
     q = db.query(MuseumItem).filter(MuseumItem.is_deleted == False)
     if category_id:
         q = q.filter(MuseumItem.category_id == category_id)

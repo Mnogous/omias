@@ -227,7 +227,7 @@ export default function ItemFormPage() {
                 <Select allowClear options={conditions.map((c) => ({ value: c.id, label: c.name }))} />
               </Form.Item>
               <Form.Item name="condition_notes" label="Расшифровка состояния">
-                <TextArea rows={2} />
+                <TextArea rows={2} style={{ whiteSpace: 'pre-wrap' }} />
               </Form.Item>
             </Card>
 

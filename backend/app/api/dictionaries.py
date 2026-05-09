@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_role
 from app.models.user import User, UserRole
-from app.models.dictionary import Category, Material, StoragePlace, Condition, AcquisitionMethod, Fond
+from app.models.dictionary import Category, Material, Condition, AcquisitionMethod, Fond, StoragePlace
 from app.models.item import MuseumItem, item_materials
 from app.schemas.dictionary import DictionaryCreate, DictionaryResponse, FondCreate, FondResponse
 from app.services.audit import log_action
@@ -15,17 +15,17 @@ router = APIRouter(prefix="/dictionaries", tags=["Справочники"])
 DICT_MAP = {
     "categories": Category,
     "materials": Material,
-    "storage_places": StoragePlace,
     "conditions": Condition,
     "acquisition_methods": AcquisitionMethod,
+    "storage_places": StoragePlace,
 }
 
 DICT_NAMES = {
     "categories": "Категории",
     "materials": "Материалы",
-    "storage_places": "Места хранения",
     "conditions": "Состояния сохранности",
     "acquisition_methods": "Способы поступления",
+    "storage_places": "Места хранения",
 }
 
 

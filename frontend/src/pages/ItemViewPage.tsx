@@ -36,8 +36,9 @@ export default function ItemViewPage() {
     name: 'Наименование', description: 'Описание', technique: 'Техника', dating: 'Датировка',
     length: 'Длина', width: 'Ширина', height: 'Высота', depth: 'Глубина', weight: 'Масса', quantity: 'Количество',
     place_of_creation: 'Место создания', author: 'Автор', notes: 'Примечания',
-    category_id: 'Категория', fond_id: 'Фонд', fond_number: '№ в фонде', storage_place_id: 'Место хранения',
-    storage_location: 'Место размещения', condition_id: 'Сохранность', condition_notes: 'Расшифровка состояния',
+    category_id: 'Категория', fond_id: 'Фонд', fond_number: '№ в фонде',
+    storage_place_id: 'Место хранения', storage_location: 'Место размещения', condition_id: 'Сохранность',
+    condition_notes: 'Расшифровка состояния',
     acquisition_method_id: 'Способ поступления', acquisition_source: 'Источник поступления',
     acquisition_date: 'Дата поступления', is_deleted: 'Статус (архив)',
     inventory_number: 'Инвентарный номер',
@@ -47,6 +48,7 @@ export default function ItemViewPage() {
 
   const formatHistoryValue = (field: string, value: string | null) => {
     if (value === null || value === undefined || value === '') return '—';
+    if (field === 'acquisition_date') return formatDate(value);
     if (field === 'is_deleted') {
       if (value === 'true') return 'В архиве';
       if (value === 'false') return 'Активный';
@@ -64,13 +66,7 @@ export default function ItemViewPage() {
     { title: 'Дата', dataIndex: 'changed_at', key: 'date', render: (v: string) => formatDateTime(v) },
   ];
 
-  const dimensionsParts = [
-    item.length || '—',
-    item.width || '—',
-    item.height || '—',
-    item.depth || '—',
-  ];
-  const dimensionsLabel = `${dimensionsParts.join(' × ')} мм`;
+  const dimensionsLabel = `${item.length || '—'} × ${item.width || '—'} × ${item.height || '—'} × ${item.depth || '—'} мм`;
 
   const guestImageProps = isGuest
     ? {
@@ -110,7 +106,7 @@ export default function ItemViewPage() {
           {!isGuest && <Descriptions.Item label="Фонд">{item.fond ? `${item.fond.name} (${item.fond.code})` : '—'}</Descriptions.Item>}
           {!isGuest && <Descriptions.Item label="№ в фонде">{item.fond_number || '—'}</Descriptions.Item>}
           <Descriptions.Item label="Категория">{item.category?.name || '—'}</Descriptions.Item>
-          <Descriptions.Item label="Материал" span={2}>
+          <Descriptions.Item label="Материал">
             {item.materials?.length ? item.materials.map((m: any) => <Tag key={m.id}>{m.name}</Tag>) : '—'}
           </Descriptions.Item>
           <Descriptions.Item label="Описание" span={2}>
@@ -128,10 +124,16 @@ export default function ItemViewPage() {
           {!isGuest && <Descriptions.Item label="Место хранения">{item.storage_place?.name || '—'}</Descriptions.Item>}
           {!isGuest && <Descriptions.Item label="Место размещения">{item.storage_location || '—'}</Descriptions.Item>}
           <Descriptions.Item label="Сохранность">{item.condition?.name || '—'}</Descriptions.Item>
-          {!isGuest && <Descriptions.Item label="Расшифровка состояния" span={2}>{item.condition_notes || '—'}</Descriptions.Item>}
-          {!isGuest && <Descriptions.Item label="Примечания" span={2}>
-            <div style={PRE_WRAP}>{item.notes || '—'}</div>
-          </Descriptions.Item>}
+          {!isGuest && (
+            <Descriptions.Item label="Расшифровка состояния" span={2}>
+              <div style={PRE_WRAP}>{item.condition_notes || '—'}</div>
+            </Descriptions.Item>
+          )}
+          {!isGuest && (
+            <Descriptions.Item label="Примечания" span={2}>
+              <div style={PRE_WRAP}>{item.notes || '—'}</div>
+            </Descriptions.Item>
+          )}
           {!isGuest && <Descriptions.Item label="Создан">{formatDateTime(item.created_at)}</Descriptions.Item>}
           {!isGuest && <Descriptions.Item label="Обновлён">{formatDateTime(item.updated_at)}</Descriptions.Item>}
         </Descriptions>
@@ -149,7 +151,6 @@ export default function ItemViewPage() {
                   src={`http://localhost:8000${img.file_path}`}
                   {...guestImageProps}
                   preview={isGuest ? { toolbarRender: () => null } : undefined}
-                  style={{ objectFit: 'cover', borderRadius: 4 }}
                 />
               ))}
             </Space>

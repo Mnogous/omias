@@ -12,6 +12,7 @@ app = FastAPI(title="ОМИАС", description="Открытая музейная
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:3000"],
+    allow_origin_regex=r"^http://192\.168\.0\.\d{1,3}(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -7,7 +7,7 @@ from alembic import context
 
 from app.core.database import Base
 from app.models.user import User
-from app.models.dictionary import Category, Material, StorageLocation, Condition, AcquisitionMethod
+from app.models.dictionary import Category, Material, StoragePlace, Condition, AcquisitionMethod, Fond
 from app.models.item import MuseumItem, ItemImage, ItemHistory, item_materials
 from app.models.audit import AuditLog
 from app.models.settings import SystemSetting

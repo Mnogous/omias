@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_role
 from app.models.user import User, UserRole
-from app.models.dictionary import Category, Material, StorageLocation, StoragePlace, Condition, AcquisitionMethod
+from app.models.dictionary import Category, Material, StoragePlace, Condition, AcquisitionMethod, Fond
 from app.models.item import MuseumItem, item_materials
-from app.schemas.dictionary import DictionaryCreate, DictionaryResponse
+from app.schemas.dictionary import DictionaryCreate, DictionaryResponse, FondCreate, FondResponse
 from app.services.audit import log_action
 
 router = APIRouter(prefix="/dictionaries", tags=["Справочники"])
@@ -15,7 +15,6 @@ router = APIRouter(prefix="/dictionaries", tags=["Справочники"])
 DICT_MAP = {
     "categories": Category,
     "materials": Material,
-    "storage_locations": StorageLocation,
     "storage_places": StoragePlace,
     "conditions": Condition,
     "acquisition_methods": AcquisitionMethod,
@@ -24,11 +23,59 @@ DICT_MAP = {
 DICT_NAMES = {
     "categories": "Категории",
     "materials": "Материалы",
-    "storage_locations": "Места хранения",
-    "storage_places": "Места размещения",
+    "storage_places": "Места хранения",
     "conditions": "Состояния сохранности",
     "acquisition_methods": "Способы поступления",
 }
+
+
+@router.get("/fonds", response_model=list[FondResponse])
+def list_fonds(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+    return db.query(Fond).order_by(Fond.id).all()
+
+
+@router.post("/fonds", response_model=FondResponse, status_code=status.HTTP_201_CREATED)
+def create_fond(data: FondCreate, db: Session = Depends(get_db), user: User = Depends(require_role(UserRole.admin))):
+    if db.query(Fond).filter((Fond.name == data.name) | (Fond.code == data.code)).first():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Фонд с таким названием или кодом уже существует")
+    entry = Fond(name=data.name, code=data.code)
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    log_action(db, user.id, "create", "fonds", entry.id, f"Добавлен фонд: {data.name} ({data.code})")
+    return entry
+
+
+@router.put("/fonds/{entry_id}", response_model=FondResponse)
+def update_fond(entry_id: int, data: FondCreate, db: Session = Depends(get_db), user: User = Depends(require_role(UserRole.admin))):
+    entry = db.query(Fond).filter(Fond.id == entry_id).first()
+    if not entry:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Фонд не найден")
+    entry.name = data.name
+    entry.code = data.code
+    db.commit()
+    db.refresh(entry)
+    log_action(db, user.id, "update", "fonds", entry.id, f"Изменён фонд: {data.name} ({data.code})")
+    return entry
+
+
+@router.delete("/fonds/{entry_id}")
+def delete_fond(entry_id: int, db: Session = Depends(get_db), user: User = Depends(require_role(UserRole.admin))):
+    entry = db.query(Fond).filter(Fond.id == entry_id).first()
+    if not entry:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Фонд не найден")
+    try:
+        db.delete(entry)
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Невозможно удалить «{entry.name}»: существуют связанные предметы",
+        )
+    db.commit()
+    log_action(db, user.id, "delete", "fonds", entry_id, f"Удалён фонд: {entry.name}")
+    return {"detail": "Удалено"}
 
 
 @router.get("/{dict_type}", response_model=list[DictionaryResponse])

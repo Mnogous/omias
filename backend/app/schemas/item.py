@@ -2,7 +2,7 @@ from datetime import datetime, date
 
 from pydantic import BaseModel
 
-from app.schemas.dictionary import DictionaryResponse
+from app.schemas.dictionary import DictionaryResponse, FondResponse
 from app.schemas.user import UserResponse
 
 
@@ -17,6 +17,8 @@ class ItemImageResponse(BaseModel):
 
 class ItemCreate(BaseModel):
     name: str
+    quantity: int = 1
+    fond_id: int | None = None
     category_id: int | None = None
     description: str | None = None
     technique: str | None = None
@@ -31,8 +33,8 @@ class ItemCreate(BaseModel):
     acquisition_method_id: int | None = None
     acquisition_source: str | None = None
     acquisition_date: date | None = None
-    storage_location_id: int | None = None
     storage_place_id: int | None = None
+    storage_location: str | None = None
     condition_id: int | None = None
     condition_notes: str | None = None
     notes: str | None = None
@@ -41,12 +43,16 @@ class ItemCreate(BaseModel):
 
 class ItemUpdate(ItemCreate):
     name: str | None = None
+    quantity: int | None = None
 
 
 class ItemResponse(BaseModel):
     id: int
     inventory_number: str
     name: str
+    quantity: int
+    fond: FondResponse | None = None
+    fond_number: str | None = None
     category: DictionaryResponse | None = None
     description: str | None = None
     technique: str | None = None
@@ -61,8 +67,8 @@ class ItemResponse(BaseModel):
     acquisition_method: DictionaryResponse | None = None
     acquisition_source: str | None = None
     acquisition_date: date | None = None
-    storage_location: DictionaryResponse | None = None
     storage_place: DictionaryResponse | None = None
+    storage_location: str | None = None
     condition: DictionaryResponse | None = None
     condition_notes: str | None = None
     notes: str | None = None

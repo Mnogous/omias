@@ -3,6 +3,7 @@ import { Card, Row, Col, Statistic, Typography, Table, Timeline } from 'antd';
 import { DatabaseOutlined, AppstoreOutlined, UserOutlined, PlusCircleOutlined } from '@ant-design/icons';
 import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
+import { formatDateTime } from '../utils/date';
 
 const { Title } = Typography;
 
@@ -98,7 +99,7 @@ export default function DashboardPage() {
                       <strong>{a.user}</strong>: {ACTION_LABELS[a.action] || a.action}
                       {a.details ? ` — ${a.details}` : ''}
                       <br />
-                      <small style={{ color: '#999' }}>{new Date(a.created_at).toLocaleString('ru-RU')}</small>
+                      <small style={{ color: '#999' }}>{formatDateTime(a.created_at)}</small>
                     </span>
                   ),
                 }))}

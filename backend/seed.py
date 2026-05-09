@@ -1,7 +1,7 @@
 from app.core.database import SessionLocal
 from app.core.security import hash_password
 from app.models.user import User, UserRole
-from app.models.dictionary import Category, Material, StorageLocation, StoragePlace, Condition, AcquisitionMethod
+from app.models.dictionary import Category, Material, StoragePlace, Condition, AcquisitionMethod, Fond
 from app.models.settings import SystemSetting
 
 db = SessionLocal()
@@ -56,24 +56,6 @@ for name in materials_list:
     if not db.query(Material).filter(Material.name == name).first():
         db.add(Material(name=name))
 
-locations = [
-    "Основное хранилище", "Выставочный зал №1", "Выставочный зал №2",
-    "Реставрационная мастерская", "Временное хранение",
-]
-for name in locations:
-    if not db.query(StorageLocation).filter(StorageLocation.name == name).first():
-        db.add(StorageLocation(name=name))
-
-places = [
-    "Витрина 1", "Витрина 2", "Витрина 3",
-    "Шкаф 1", "Шкаф 2",
-    "Стеллаж 1", "Стеллаж 2",
-    "Сейф",
-]
-for name in places:
-    if not db.query(StoragePlace).filter(StoragePlace.name == name).first():
-        db.add(StoragePlace(name=name))
-
 conditions_list = [
     "Отличное", "Хорошее", "Удовлетворительное",
     "Требует реставрации", "Неудовлетворительное",
@@ -89,6 +71,34 @@ methods = [
 for name in methods:
     if not db.query(AcquisitionMethod).filter(AcquisitionMethod.name == name).first():
         db.add(AcquisitionMethod(name=name))
+
+storage_places = [
+    "Временное хранение",
+    "Основное хранилище",
+    "Реставрационная мастерская",
+    "Экспозиция",
+]
+for name in storage_places:
+    if not db.query(StoragePlace).filter(StoragePlace.name == name).first():
+        db.add(StoragePlace(name=name))
+
+fonds_seed = [
+    ("Технический фонд", "Т"),
+    ("Фонд моделей и макетов", "ММ"),
+    ("Документальный фонд", "Д"),
+    ("Мемориальный фонд", "МЕМ"),
+    ("Фонд фотоматериалов", "Ф"),
+    ("Фонд ИЗО и ДПИ", "ИЗО"),
+    ("Фонд медиаискусства", "МИ"),
+    ("Фонд фалеристики", "ФЛ"),
+    ("Фонд форменной одежды", "ФО"),
+    ("Книжный фонд", "К"),
+    ("Предметный фонд", "П"),
+    ("Научно-вспомогательный фонд", "НВ"),
+]
+for name, code in fonds_seed:
+    if not db.query(Fond).filter(Fond.code == code).first():
+        db.add(Fond(name=name, code=code, last_number=0))
 
 if not db.query(SystemSetting).filter(SystemSetting.key == "inventory_template").first():
     db.add(SystemSetting(key="inventory_template", value="МГ-{number:06d}"))

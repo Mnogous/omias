@@ -1,4 +1,4 @@
-from sqlalchemy import String
+from sqlalchemy import String, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -14,13 +14,6 @@ class Material(Base):
     __tablename__ = "materials"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255), unique=True)
-
-
-class StorageLocation(Base):
-    __tablename__ = "storage_locations"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(255), unique=True)
-
 
 class StoragePlace(Base):
     __tablename__ = "storage_places"
@@ -38,3 +31,11 @@ class AcquisitionMethod(Base):
     __tablename__ = "acquisition_methods"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255), unique=True)
+
+
+class Fond(Base):
+    __tablename__ = "fonds"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), unique=True)
+    code: Mapped[str] = mapped_column(String(20), unique=True)
+    last_number: Mapped[int] = mapped_column(Integer, default=0)

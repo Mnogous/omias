@@ -4,13 +4,13 @@
 
 ## Технологический стек
 
-**Сервер:** Python 3.14, FastAPI 0.115, SQLAlchemy 2.0, PostgreSQL 15, Alembic, ReportLab
+**Сервер:** Python 3.13, FastAPI 0.115, SQLAlchemy 2.0, PostgreSQL 15, Alembic, ReportLab
 
 **Клиент:** React 19, TypeScript 6, Vite 8, Ant Design 6, React Router 7, Axios
 
 ## Требования
 
-- Python 3.14+
+- Python 3.13+
 - Node.js 18+
 - PostgreSQL 15+
 

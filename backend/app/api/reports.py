@@ -127,7 +127,7 @@ def inventory_book(
         q = q.filter(MuseumItem.fond_id == fond_id)
     items = q.order_by(MuseumItem.inventory_number).all()
 
-    data = [["№", "Инв. номер", "№ в фонде", "Наименование", "Категория", "Дата пост.", "Место хран.", "Размещение"]]
+    data = [["№", "Инв. номер", "№ в фонде", "Наименование", "Категория", "Дата пост.", "Хранение", "Размещение"]]
     for i, item in enumerate(items, 1):
         data.append([
             str(i),
@@ -171,11 +171,11 @@ def acquisitions_book(
     )
     elements = []
 
-    title = "Книга поступлений фондов музея"
     if fond_id:
         fond = db.query(Fond).filter(Fond.id == fond_id).first()
-        if fond:
-            title = f"Книга поступлений: {fond.name}"
+        title = f"Книга поступлений: {fond.name}" if fond else "Книга поступлений фондов музея"
+    else:
+        title = "Книга поступлений основного фонда музея"
     elements.append(Paragraph(title, styles["RuTitle"]))
     elements.append(Paragraph("(главная инвентарная книга музея)", styles["RuSubtitle"]))
     elements.append(Spacer(1, 4*mm))

@@ -11,7 +11,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user, require_role
 from app.models.user import User, UserRole
 from app.models.item import MuseumItem, ItemImage, ItemHistory, item_materials
-from app.models.dictionary import Material, Category, StoragePlace, Condition, AcquisitionMethod, Fond
+from app.models.dictionary import Material, Category, Condition, AcquisitionMethod, Fond, StoragePlace
 from app.models.settings import SystemSetting
 from app.schemas.item import ItemCreate, ItemUpdate, ItemResponse, ItemListResponse, ItemHistoryResponse
 from app.services.audit import log_action
@@ -28,12 +28,20 @@ def _next_inventory_number(db: Session) -> str:
     return template.format(number=last + 1)
 
 
+def _next_fond_number(db: Session, fond_id: int) -> str | None:
+    fond = db.query(Fond).filter(Fond.id == fond_id).with_for_update().first()
+    if not fond:
+        return None
+    fond.last_number += 1
+    return f"{fond.code}-{fond.last_number:06d}"
+
+
 DICT_FK_MODELS = {
     "category_id": Category,
-    "fond_id": Fond,
     "storage_place_id": StoragePlace,
     "condition_id": Condition,
     "acquisition_method_id": AcquisitionMethod,
+    "fond_id": Fond,
 }
 
 
@@ -54,14 +62,6 @@ def _record_history(db: Session, item_id: int, user_id: int, field_name: str, ol
     ))
 
 
-def _next_fond_number(db: Session, fond_id: int) -> str | None:
-    fond = db.query(Fond).filter(Fond.id == fond_id).with_for_update().first()
-    if not fond:
-        return None
-    fond.last_number += 1
-    return f"{fond.code}-{fond.last_number:06d}"
-
-
 def _track_changes(db: Session, item: MuseumItem, data: dict, user_id: int):
     for field, new_val in data.items():
         if field == "material_ids":
@@ -70,7 +70,10 @@ def _track_changes(db: Session, item: MuseumItem, data: dict, user_id: int):
             if old_ids == new_ids:
                 continue
             old_names = ", ".join(m.name for m in sorted(item.materials, key=lambda x: x.id)) or None
-            new_materials = db.query(Material).filter(Material.id.in_(new_ids)).order_by(Material.id).all() if new_ids else []
+            new_materials = (
+                db.query(Material).filter(Material.id.in_(new_ids)).order_by(Material.id).all()
+                if new_ids else []
+            )
             new_names = ", ".join(m.name for m in new_materials) or None
             _record_history(db, item.id, user_id, "material_ids", old_names, new_names)
             continue

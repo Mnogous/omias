@@ -48,9 +48,9 @@ class MuseumItem(Base):
 
     category = relationship("Category", lazy="joined")
     fond = relationship("Fond", lazy="joined")
-    storage_place = relationship("StoragePlace", lazy="joined")
     condition = relationship("Condition", lazy="joined")
     acquisition_method = relationship("AcquisitionMethod", lazy="joined")
+    storage_place = relationship("StoragePlace", lazy="joined")
     materials = relationship("Material", secondary=item_materials, lazy="joined")
     images = relationship("ItemImage", back_populates="item", cascade="all, delete-orphan", lazy="selectin")
     creator = relationship("User", lazy="joined")

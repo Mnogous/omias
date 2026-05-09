@@ -1,3 +1,4 @@
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -7,7 +8,7 @@ from alembic import context
 
 from app.core.database import Base
 from app.models.user import User
-from app.models.dictionary import Category, Material, StoragePlace, Condition, AcquisitionMethod, Fond
+from app.models.dictionary import Category, Material, Condition, AcquisitionMethod, Fond, StoragePlace
 from app.models.item import MuseumItem, ItemImage, ItemHistory, item_materials
 from app.models.audit import AuditLog
 from app.models.settings import SystemSetting
@@ -16,6 +17,9 @@ config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+if os.environ.get("DATABASE_URL"):
+    config.set_main_option("sqlalchemy.url", os.environ["DATABASE_URL"])
 
 target_metadata = Base.metadata
 

@@ -15,11 +15,6 @@ class Material(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255), unique=True)
 
-class StoragePlace(Base):
-    __tablename__ = "storage_places"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(255), unique=True)
-
 
 class Condition(Base):
     __tablename__ = "conditions"
@@ -29,6 +24,12 @@ class Condition(Base):
 
 class AcquisitionMethod(Base):
     __tablename__ = "acquisition_methods"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), unique=True)
+
+
+class StoragePlace(Base):
+    __tablename__ = "storage_places"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255), unique=True)
 

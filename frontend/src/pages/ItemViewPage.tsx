@@ -4,8 +4,11 @@ import { EditOutlined, ArrowLeftOutlined, HistoryOutlined, FilePdfOutlined } fro
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
+import { formatDate, formatDateTime } from '../utils/date';
 
 const { Title } = Typography;
+
+const PRE_WRAP: React.CSSProperties = { whiteSpace: 'pre-wrap' };
 
 export default function ItemViewPage() {
   const { id } = useParams();
@@ -31,10 +34,10 @@ export default function ItemViewPage() {
 
   const FIELD_LABELS: Record<string, string> = {
     name: 'Наименование', description: 'Описание', technique: 'Техника', dating: 'Датировка',
-    length: 'Длина', width: 'Ширина', height: 'Высота', depth: 'Глубина', weight: 'Масса',
+    length: 'Длина', width: 'Ширина', height: 'Высота', depth: 'Глубина', weight: 'Масса', quantity: 'Количество',
     place_of_creation: 'Место создания', author: 'Автор', notes: 'Примечания',
-    category_id: 'Категория', storage_location_id: 'Место хранения', storage_place_id: 'Место размещения',
-    condition_id: 'Сохранность', condition_notes: 'Расшифровка состояния',
+    category_id: 'Категория', fond_id: 'Фонд', fond_number: '№ в фонде', storage_place_id: 'Место хранения',
+    storage_location: 'Место размещения', condition_id: 'Сохранность', condition_notes: 'Расшифровка состояния',
     acquisition_method_id: 'Способ поступления', acquisition_source: 'Источник поступления',
     acquisition_date: 'Дата поступления', is_deleted: 'Статус (архив)',
     inventory_number: 'Инвентарный номер',
@@ -58,7 +61,7 @@ export default function ItemViewPage() {
     { title: 'Стало', dataIndex: 'new_value', key: 'new', ellipsis: true,
       render: (v: string | null, r: any) => formatHistoryValue(r.field_name, v) },
     { title: 'Пользователь', key: 'user', render: (_: any, r: any) => r.user?.full_name },
-    { title: 'Дата', dataIndex: 'changed_at', key: 'date', render: (v: string) => new Date(v).toLocaleString('ru-RU') },
+    { title: 'Дата', dataIndex: 'changed_at', key: 'date', render: (v: string) => formatDateTime(v) },
   ];
 
   const dimensionsParts = [
@@ -103,11 +106,16 @@ export default function ItemViewPage() {
         </Title>
         <Descriptions bordered column={2} size="small">
           {!isGuest && <Descriptions.Item label="Инвентарный номер">{item.inventory_number}</Descriptions.Item>}
+          {!isGuest && <Descriptions.Item label="Количество">{item.quantity ?? 1}</Descriptions.Item>}
+          {!isGuest && <Descriptions.Item label="Фонд">{item.fond ? `${item.fond.name} (${item.fond.code})` : '—'}</Descriptions.Item>}
+          {!isGuest && <Descriptions.Item label="№ в фонде">{item.fond_number || '—'}</Descriptions.Item>}
           <Descriptions.Item label="Категория">{item.category?.name || '—'}</Descriptions.Item>
           <Descriptions.Item label="Материал" span={2}>
             {item.materials?.length ? item.materials.map((m: any) => <Tag key={m.id}>{m.name}</Tag>) : '—'}
           </Descriptions.Item>
-          <Descriptions.Item label="Описание" span={2}>{item.description || '—'}</Descriptions.Item>
+          <Descriptions.Item label="Описание" span={2}>
+            <div style={PRE_WRAP}>{item.description || '—'}</div>
+          </Descriptions.Item>
           <Descriptions.Item label="Техника">{item.technique || '—'}</Descriptions.Item>
           <Descriptions.Item label="Датировка">{item.dating || '—'}</Descriptions.Item>
           <Descriptions.Item label="Размеры (Д×Ш×В×Гл)">{dimensionsLabel}</Descriptions.Item>
@@ -116,14 +124,16 @@ export default function ItemViewPage() {
           <Descriptions.Item label="Автор">{item.author || '—'}</Descriptions.Item>
           {!isGuest && <Descriptions.Item label="Способ поступления">{item.acquisition_method?.name || '—'}</Descriptions.Item>}
           {!isGuest && <Descriptions.Item label="Источник поступления">{item.acquisition_source || '—'}</Descriptions.Item>}
-          {!isGuest && <Descriptions.Item label="Дата поступления">{item.acquisition_date || '—'}</Descriptions.Item>}
-          {!isGuest && <Descriptions.Item label="Место хранения">{item.storage_location?.name || '—'}</Descriptions.Item>}
-          {!isGuest && <Descriptions.Item label="Место размещения">{item.storage_place?.name || '—'}</Descriptions.Item>}
+          {!isGuest && <Descriptions.Item label="Дата поступления">{formatDate(item.acquisition_date)}</Descriptions.Item>}
+          {!isGuest && <Descriptions.Item label="Место хранения">{item.storage_place?.name || '—'}</Descriptions.Item>}
+          {!isGuest && <Descriptions.Item label="Место размещения">{item.storage_location || '—'}</Descriptions.Item>}
           <Descriptions.Item label="Сохранность">{item.condition?.name || '—'}</Descriptions.Item>
           {!isGuest && <Descriptions.Item label="Расшифровка состояния" span={2}>{item.condition_notes || '—'}</Descriptions.Item>}
-          {!isGuest && <Descriptions.Item label="Примечания" span={2}>{item.notes || '—'}</Descriptions.Item>}
-          {!isGuest && <Descriptions.Item label="Создан">{new Date(item.created_at).toLocaleString('ru-RU')}</Descriptions.Item>}
-          {!isGuest && <Descriptions.Item label="Обновлён">{new Date(item.updated_at).toLocaleString('ru-RU')}</Descriptions.Item>}
+          {!isGuest && <Descriptions.Item label="Примечания" span={2}>
+            <div style={PRE_WRAP}>{item.notes || '—'}</div>
+          </Descriptions.Item>}
+          {!isGuest && <Descriptions.Item label="Создан">{formatDateTime(item.created_at)}</Descriptions.Item>}
+          {!isGuest && <Descriptions.Item label="Обновлён">{formatDateTime(item.updated_at)}</Descriptions.Item>}
         </Descriptions>
       </Card>
 
@@ -139,6 +149,7 @@ export default function ItemViewPage() {
                   src={`http://localhost:8000${img.file_path}`}
                   {...guestImageProps}
                   preview={isGuest ? { toolbarRender: () => null } : undefined}
+                  style={{ objectFit: 'cover', borderRadius: 4 }}
                 />
               ))}
             </Space>

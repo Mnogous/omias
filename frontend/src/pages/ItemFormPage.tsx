@@ -5,11 +5,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
+import { DATE_FORMAT, toApiDate } from '../utils/date';
 
 const { Title } = Typography;
 const { TextArea } = Input;
 
 interface DictItem { id: number; name: string; }
+interface FondItem { id: number; name: string; code: string; }
 
 export default function ItemFormPage() {
   const { id } = useParams();
@@ -20,10 +22,10 @@ export default function ItemFormPage() {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<DictItem[]>([]);
   const [materials, setMaterials] = useState<DictItem[]>([]);
-  const [locations, setLocations] = useState<DictItem[]>([]);
-  const [places, setPlaces] = useState<DictItem[]>([]);
   const [conditions, setConditions] = useState<DictItem[]>([]);
   const [methods, setMethods] = useState<DictItem[]>([]);
+  const [storagePlaces, setStoragePlaces] = useState<DictItem[]>([]);
+  const [fonds, setFonds] = useState<FondItem[]>([]);
   const [images, setImages] = useState<any[]>([]);
   const isEdit = id && id !== 'new';
 
@@ -31,17 +33,17 @@ export default function ItemFormPage() {
     Promise.all([
       api.get('/dictionaries/categories'),
       api.get('/dictionaries/materials'),
-      api.get('/dictionaries/storage_locations'),
-      api.get('/dictionaries/storage_places'),
       api.get('/dictionaries/conditions'),
       api.get('/dictionaries/acquisition_methods'),
-    ]).then(([c, m, l, sp, co, am]) => {
+      api.get('/dictionaries/fonds'),
+      api.get('/dictionaries/storage_places'),
+    ]).then(([c, m, co, am, f, sp]) => {
       setCategories(c.data);
       setMaterials(m.data);
-      setLocations(l.data);
-      setPlaces(sp.data);
       setConditions(co.data);
       setMethods(am.data);
+      setFonds(f.data);
+      setStoragePlaces(sp.data);
     });
 
     if (isEdit) {
@@ -50,15 +52,19 @@ export default function ItemFormPage() {
         form.setFieldsValue({
           ...d,
           category_id: d.category?.id,
-          storage_location_id: d.storage_location?.id,
+          fond_id: d.fond?.id,
           storage_place_id: d.storage_place?.id,
+          storage_location: d.storage_location || '',
           condition_id: d.condition?.id,
           acquisition_method_id: d.acquisition_method?.id,
           material_ids: d.materials?.map((m: DictItem) => m.id) || [],
           acquisition_date: d.acquisition_date ? dayjs(d.acquisition_date) : null,
+          quantity: d.quantity ?? 1,
         });
         setImages(d.images || []);
       });
+    } else {
+      form.setFieldsValue({ quantity: 1 });
     }
   }, [id]);
 
@@ -67,7 +73,7 @@ export default function ItemFormPage() {
     try {
       const data = {
         ...values,
-        acquisition_date: values.acquisition_date?.format('YYYY-MM-DD') || null,
+        acquisition_date: toApiDate(values.acquisition_date),
       };
       if (isEdit) {
         await api.put(`/items/${id}`, data);
@@ -131,7 +137,7 @@ export default function ItemFormPage() {
                 </Col>
               </Row>
               <Form.Item name="description" label="Описание">
-                <TextArea rows={4} maxLength={10000} showCount />
+                <TextArea rows={4} maxLength={10000} showCount style={{ whiteSpace: 'pre-wrap' }} />
               </Form.Item>
               <Row gutter={16}>
                 <Col span={12}>
@@ -146,29 +152,32 @@ export default function ItemFormPage() {
                 </Col>
               </Row>
               <Row gutter={16}>
-                <Col span={6}>
+                <Col span={4}>
+                  <Form.Item name="quantity" label="Количество" rules={[{ required: true }]}>
+                    <InputNumber style={{ width: '100%' }} min={1} step={1} precision={0} />
+                  </Form.Item>
+                </Col>
+                <Col span={4}>
                   <Form.Item name="length" label="Длина (мм)">
                     <InputNumber style={{ width: '100%' }} min={0} />
                   </Form.Item>
                 </Col>
-                <Col span={6}>
+                <Col span={4}>
                   <Form.Item name="width" label="Ширина (мм)">
                     <InputNumber style={{ width: '100%' }} min={0} />
                   </Form.Item>
                 </Col>
-                <Col span={6}>
+                <Col span={4}>
                   <Form.Item name="height" label="Высота (мм)">
                     <InputNumber style={{ width: '100%' }} min={0} />
                   </Form.Item>
                 </Col>
-                <Col span={6}>
+                <Col span={4}>
                   <Form.Item name="depth" label="Глубина (мм)">
                     <InputNumber style={{ width: '100%' }} min={0} />
                   </Form.Item>
                 </Col>
-              </Row>
-              <Row gutter={16}>
-                <Col span={6}>
+                <Col span={4}>
                   <Form.Item name="weight" label="Масса (г)">
                     <InputNumber style={{ width: '100%' }} min={0} />
                   </Form.Item>
@@ -187,12 +196,18 @@ export default function ItemFormPage() {
                 </Col>
               </Row>
               <Form.Item name="notes" label="Примечания">
-                <TextArea rows={2} />
+                <TextArea rows={3} style={{ whiteSpace: 'pre-wrap' }} />
               </Form.Item>
             </Card>
           </Col>
           <Col span={8}>
             <Card title="Учётные данные" size="small" style={{ marginBottom: 16 }}>
+              <Form.Item name="fond_id" label="Фонд">
+                <Select
+                  allowClear
+                  options={fonds.map((f) => ({ value: f.id, label: `${f.name} (${f.code})` }))}
+                />
+              </Form.Item>
               <Form.Item name="acquisition_method_id" label="Способ поступления">
                 <Select allowClear options={methods.map((m) => ({ value: m.id, label: m.name }))} />
               </Form.Item>
@@ -200,13 +215,13 @@ export default function ItemFormPage() {
                 <Input />
               </Form.Item>
               <Form.Item name="acquisition_date" label="Дата поступления">
-                <DatePicker style={{ width: '100%' }} />
+                <DatePicker style={{ width: '100%' }} format={DATE_FORMAT} />
               </Form.Item>
-              <Form.Item name="storage_location_id" label="Место хранения">
-                <Select allowClear options={locations.map((l) => ({ value: l.id, label: l.name }))} />
+              <Form.Item name="storage_place_id" label="Место хранения">
+                <Select allowClear options={storagePlaces.map((s) => ({ value: s.id, label: s.name }))} />
               </Form.Item>
-              <Form.Item name="storage_place_id" label="Место размещения (витрина/шкаф)">
-                <Select allowClear options={places.map((p) => ({ value: p.id, label: p.name }))} />
+              <Form.Item name="storage_location" label="Место размещения">
+                <Input placeholder="Например: шкаф №3, полка 2" />
               </Form.Item>
               <Form.Item name="condition_id" label="Состояние сохранности">
                 <Select allowClear options={conditions.map((c) => ({ value: c.id, label: c.name }))} />

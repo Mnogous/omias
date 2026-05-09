@@ -6,12 +6,12 @@ import api from '../api/client';
 const { Title } = Typography;
 
 const DICT_TYPES = [
-  { key: 'categories', label: 'Категории' },
-  { key: 'materials', label: 'Материалы' },
-  { key: 'storage_locations', label: 'Места хранения' },
-  { key: 'storage_places', label: 'Места размещения' },
-  { key: 'conditions', label: 'Состояния сохранности' },
-  { key: 'acquisition_methods', label: 'Способы поступления' },
+  { key: 'categories', label: 'Категории', isFond: false },
+  { key: 'materials', label: 'Материалы', isFond: false },
+  { key: 'fonds', label: 'Фонды', isFond: true },
+  { key: 'conditions', label: 'Состояния сохранности', isFond: false },
+  { key: 'acquisition_methods', label: 'Способы поступления', isFond: false },
+  { key: 'storage_places', label: 'Места хранения', isFond: false },
 ];
 
 export default function DictionariesPage() {
@@ -21,6 +21,7 @@ export default function DictionariesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [form] = Form.useForm();
+  const isFond = DICT_TYPES.find((d) => d.key === activeTab)?.isFond ?? false;
 
   const fetchData = async (type: string) => {
     setLoading(true);
@@ -59,21 +60,29 @@ export default function DictionariesPage() {
     }
   };
 
-  const columns = [
+  const baseColumns: any[] = [
     { title: '№', key: 'index', width: 60, render: (_: any, __: any, i: number) => i + 1 },
     { title: 'Наименование', dataIndex: 'name', key: 'name' },
-    {
-      title: 'Действия', key: 'actions', width: 120,
-      render: (_: any, r: any) => (
-        <Space>
-          <Button size="small" icon={<EditOutlined />} onClick={() => { setEditingItem(r); form.setFieldsValue(r); setModalOpen(true); }} />
-          <Popconfirm title="Удалить запись?" okText="Да" cancelText="Отмена" onConfirm={() => handleDelete(r.id)}>
-            <Button size="small" danger icon={<DeleteOutlined />} />
-          </Popconfirm>
-        </Space>
-      ),
-    },
   ];
+
+  const fondColumns: any[] = [
+    ...baseColumns,
+    { title: 'Код', dataIndex: 'code', key: 'code', width: 120 },
+  ];
+
+  const actionColumn: any = {
+    title: 'Действия', key: 'actions', width: 120,
+    render: (_: any, r: any) => (
+      <Space>
+        <Button size="small" icon={<EditOutlined />} onClick={() => { setEditingItem(r); form.setFieldsValue(r); setModalOpen(true); }} />
+        <Popconfirm title="Удалить запись?" okText="Да" cancelText="Отмена" onConfirm={() => handleDelete(r.id)}>
+          <Button size="small" danger icon={<DeleteOutlined />} />
+        </Popconfirm>
+      </Space>
+    ),
+  };
+
+  const columns = isFond ? [...fondColumns, actionColumn] : [...baseColumns, actionColumn];
 
   return (
     <div>
@@ -103,6 +112,11 @@ export default function DictionariesPage() {
           <Form.Item name="name" label="Наименование" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
+          {isFond && (
+            <Form.Item name="code" label="Код фонда" rules={[{ required: true, message: 'Код используется для номеров вида «КОД-000001»' }]}>
+              <Input placeholder="например: Т, ММ, ИЗО" />
+            </Form.Item>
+          )}
         </Form>
       </Modal>
     </div>

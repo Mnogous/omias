@@ -11,7 +11,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user, require_role
 from app.models.user import User, UserRole
 from app.models.item import MuseumItem, ItemImage, ItemHistory, item_materials
-from app.models.dictionary import Material, Category, StorageLocation, StoragePlace, Condition, AcquisitionMethod
+from app.models.dictionary import Material, Category, StoragePlace, Condition, AcquisitionMethod, Fond
 from app.models.settings import SystemSetting
 from app.schemas.item import ItemCreate, ItemUpdate, ItemResponse, ItemListResponse, ItemHistoryResponse
 from app.services.audit import log_action
@@ -30,7 +30,7 @@ def _next_inventory_number(db: Session) -> str:
 
 DICT_FK_MODELS = {
     "category_id": Category,
-    "storage_location_id": StorageLocation,
+    "fond_id": Fond,
     "storage_place_id": StoragePlace,
     "condition_id": Condition,
     "acquisition_method_id": AcquisitionMethod,
@@ -52,6 +52,14 @@ def _record_history(db: Session, item_id: int, user_id: int, field_name: str, ol
         old_value=str(old_value) if old_value is not None else None,
         new_value=str(new_value) if new_value is not None else None,
     ))
+
+
+def _next_fond_number(db: Session, fond_id: int) -> str | None:
+    fond = db.query(Fond).filter(Fond.id == fond_id).with_for_update().first()
+    if not fond:
+        return None
+    fond.last_number += 1
+    return f"{fond.code}-{fond.last_number:06d}"
 
 
 def _track_changes(db: Session, item: MuseumItem, data: dict, user_id: int):
@@ -82,8 +90,9 @@ def list_items(
     per_page: int = Query(20, ge=1, le=100),
     search: str | None = None,
     category_id: int | None = None,
-    storage_location_id: int | None = None,
+    fond_id: int | None = None,
     condition_id: int | None = None,
+    storage_place_id: int | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
     sort_by: str = "id",
@@ -104,13 +113,17 @@ def list_items(
             MuseumItem.description.ilike(pattern),
             MuseumItem.notes.ilike(pattern),
             MuseumItem.inventory_number.ilike(pattern),
+            MuseumItem.fond_number.ilike(pattern),
+            MuseumItem.storage_location.ilike(pattern),
         ))
     if category_id:
         q = q.filter(MuseumItem.category_id == category_id)
-    if storage_location_id:
-        q = q.filter(MuseumItem.storage_location_id == storage_location_id)
+    if fond_id:
+        q = q.filter(MuseumItem.fond_id == fond_id)
     if condition_id:
         q = q.filter(MuseumItem.condition_id == condition_id)
+    if storage_place_id:
+        q = q.filter(MuseumItem.storage_place_id == storage_place_id)
     if date_from:
         q = q.filter(MuseumItem.acquisition_date >= date_from)
     if date_to:
@@ -132,12 +145,18 @@ def list_items(
 def create_item(
     data: ItemCreate,
     db: Session = Depends(get_db),
-    user: User = Depends(require_role(UserRole.admin, UserRole.keeper)),
+    user: User = Depends(require_role(UserRole.admin, UserRole.keeper, UserRole.researcher)),
 ):
     inv_number = _next_inventory_number(db)
+    fond_number = _next_fond_number(db, data.fond_id) if data.fond_id else None
+    if data.fond_id and fond_number is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Указанный фонд не найден")
     item = MuseumItem(
         inventory_number=inv_number,
         name=data.name,
+        quantity=data.quantity or 1,
+        fond_id=data.fond_id,
+        fond_number=fond_number,
         category_id=data.category_id,
         description=data.description,
         technique=data.technique,
@@ -152,8 +171,8 @@ def create_item(
         acquisition_method_id=data.acquisition_method_id,
         acquisition_source=data.acquisition_source,
         acquisition_date=data.acquisition_date,
-        storage_location_id=data.storage_location_id,
         storage_place_id=data.storage_place_id,
+        storage_location=data.storage_location,
         condition_id=data.condition_id,
         condition_notes=data.condition_notes,
         notes=data.notes,
@@ -197,6 +216,17 @@ def update_item(
     _track_changes(db, item, update_data, user.id)
 
     material_ids = update_data.pop("material_ids", None)
+
+    if "fond_id" in update_data and update_data["fond_id"] != item.fond_id:
+        new_fond_id = update_data["fond_id"]
+        if new_fond_id:
+            new_number = _next_fond_number(db, new_fond_id)
+            if new_number is None:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Указанный фонд не найден")
+            update_data["fond_number"] = new_number
+        else:
+            update_data["fond_number"] = None
+
     for field, value in update_data.items():
         setattr(item, field, value)
 

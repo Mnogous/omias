@@ -4,6 +4,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, UndoOutlined, 
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
+import { DATE_FORMAT, formatDate, toApiDate } from '../utils/date';
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -12,6 +13,8 @@ interface DictItem {
   id: number;
   name: string;
 }
+
+interface FondItem { id: number; name: string; code: string; }
 
 export default function ItemsPage() {
   const { user } = useAuth();
@@ -25,20 +28,23 @@ export default function ItemsPage() {
   const [searchInput, setSearchInput] = useState('');
   const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [categoryId, setCategoryId] = useState<number | undefined>();
-  const [locationId, setLocationId] = useState<number | undefined>();
+  const [fondId, setFondId] = useState<number | undefined>();
   const [conditionId, setConditionId] = useState<number | undefined>();
+  const [storagePlaceId, setStoragePlaceId] = useState<number | undefined>();
   const [dateRange, setDateRange] = useState<[string, string] | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
   const [sortBy, setSortBy] = useState<string>('id');
   const [sortOrder, setSortOrder] = useState<string>('desc');
   const [categories, setCategories] = useState<DictItem[]>([]);
-  const [locations, setLocations] = useState<DictItem[]>([]);
+  const [fonds, setFonds] = useState<FondItem[]>([]);
   const [conditions, setConditions] = useState<DictItem[]>([]);
+  const [storagePlaces, setStoragePlaces] = useState<DictItem[]>([]);
 
   useEffect(() => {
     api.get('/dictionaries/categories').then((r) => setCategories(r.data));
-    api.get('/dictionaries/storage_locations').then((r) => setLocations(r.data));
+    api.get('/dictionaries/fonds').then((r) => setFonds(r.data));
     api.get('/dictionaries/conditions').then((r) => setConditions(r.data));
+    api.get('/dictionaries/storage_places').then((r) => setStoragePlaces(r.data));
   }, []);
 
   const fetchItems = useCallback(async () => {
@@ -47,8 +53,9 @@ export default function ItemsPage() {
       const params: Record<string, string | number | boolean> = { page, per_page: perPage, show_deleted: showDeleted, sort_by: sortBy, sort_order: sortOrder };
       if (search) params.search = search;
       if (categoryId) params.category_id = categoryId;
-      if (locationId) params.storage_location_id = locationId;
+      if (fondId) params.fond_id = fondId;
       if (conditionId) params.condition_id = conditionId;
+      if (storagePlaceId) params.storage_place_id = storagePlaceId;
       if (dateRange) {
         params.date_from = dateRange[0];
         params.date_to = dateRange[1];
@@ -59,7 +66,7 @@ export default function ItemsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, perPage, search, categoryId, locationId, conditionId, dateRange, showDeleted, sortBy, sortOrder]);
+  }, [page, perPage, search, categoryId, fondId, conditionId, storagePlaceId, dateRange, showDeleted, sortBy, sortOrder]);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
@@ -80,22 +87,35 @@ export default function ItemsPage() {
 
   const columns = [
     { title: 'Инв. №', dataIndex: 'inventory_number', key: 'inv', width: 120, sorter: true },
-    { title: 'Наименование', dataIndex: 'name', key: 'name', ellipsis: true, sorter: true },
+    { title: '№ в фонде', dataIndex: 'fond_number', key: 'fond_number', width: 110, render: (v: string) => v || '—' },
+    { title: 'Наименование', dataIndex: 'name', key: 'name', width: 200, ellipsis: true, sorter: true },
     {
-      title: 'Категория', key: 'category', width: 150,
+      title: 'Кол-во', dataIndex: 'quantity', key: 'qty', width: 70,
+      render: (v: number) => v ?? 1,
+    },
+    {
+      title: 'Фонд', key: 'fond', width: 140,
+      render: (_: unknown, r: Record<string, any>) => r.fond?.name || '—',
+    },
+    {
+      title: 'Категория', key: 'category', width: 140,
       render: (_: unknown, r: Record<string, any>) => r.category?.name || '—',
     },
     {
-      title: 'Место хранения', key: 'location', width: 160,
-      render: (_: unknown, r: Record<string, any>) => r.storage_location?.name || '—',
+      title: 'Место хранения', key: 'place', width: 160, ellipsis: true,
+      render: (_: unknown, r: Record<string, any>) => r.storage_place?.name || '—',
     },
     {
-      title: 'Сохранность', key: 'condition', width: 140,
+      title: 'Размещение', key: 'location', width: 160, ellipsis: true,
+      render: (_: unknown, r: Record<string, any>) => r.storage_location || '—',
+    },
+    {
+      title: 'Сохранность', key: 'condition', width: 130,
       render: (_: unknown, r: Record<string, any>) => r.condition?.name || '—',
     },
     {
       title: 'Дата пост.', key: 'date', width: 110, sorter: true,
-      render: (_: unknown, r: Record<string, any>) => r.acquisition_date || '—',
+      render: (_: unknown, r: Record<string, any>) => formatDate(r.acquisition_date),
     },
     {
       title: 'Статус', key: 'status', width: 90,
@@ -127,7 +147,7 @@ export default function ItemsPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
         <Title level={4} style={{ margin: 0 }}>Каталог музейных предметов</Title>
-        {canDelete && (
+        {canEdit && (
           <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/items/new')}>
             Добавить предмет
           </Button>
@@ -166,12 +186,12 @@ export default function ItemsPage() {
           </Col>
           <Col span={4}>
             <Select
-              placeholder="Место хранения"
-              value={locationId}
-              onChange={(v) => { setLocationId(v); setPage(1); }}
+              placeholder="Фонд"
+              value={fondId}
+              onChange={(v) => { setFondId(v); setPage(1); }}
               allowClear
               style={{ width: '100%' }}
-              options={locations.map((l) => ({ value: l.id, label: l.name }))}
+              options={fonds.map((f) => ({ value: f.id, label: `${f.name} (${f.code})` }))}
             />
           </Col>
           <Col span={4}>
@@ -185,12 +205,23 @@ export default function ItemsPage() {
             />
           </Col>
           <Col span={4}>
+            <Select
+              placeholder="Место хранения"
+              value={storagePlaceId}
+              onChange={(v) => { setStoragePlaceId(v); setPage(1); }}
+              allowClear
+              style={{ width: '100%' }}
+              options={storagePlaces.map((s) => ({ value: s.id, label: s.name }))}
+            />
+          </Col>
+          <Col span={4}>
             <RangePicker
               placeholder={['Начало', 'Конец']}
+              format={DATE_FORMAT}
               style={{ width: '100%' }}
               onChange={(dates) => {
                 if (dates && dates[0] && dates[1]) {
-                  setDateRange([dates[0].format('YYYY-MM-DD'), dates[1].format('YYYY-MM-DD')]);
+                  setDateRange([toApiDate(dates[0])!, toApiDate(dates[1])!]);
                 } else {
                   setDateRange(null);
                 }
@@ -217,7 +248,7 @@ export default function ItemsPage() {
         columns={columns}
         rowKey="id"
         loading={loading}
-        scroll={{ x: 1000 }}
+        scroll={{ x: 1300 }}
         locale={{ emptyText: 'Предметы не найдены' }}
         onChange={(_pagination, _filters, sorter: any, extra: any) => {
           if (extra?.action !== 'sort') return;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Table, Select, DatePicker, Typography, Row, Col, Card } from 'antd';
 import api from '../api/client';
+import { DATE_FORMAT, formatDateTime, toApiDate } from '../utils/date';
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -37,7 +38,7 @@ export default function AuditPage() {
   }, [page, perPage, filterUser, filterAction, dateRange]);
 
   const columns = [
-    { title: 'Дата', key: 'date', width: 160, render: (_: any, r: any) => new Date(r.created_at).toLocaleString('ru-RU') },
+    { title: 'Дата', key: 'date', width: 160, render: (_: any, r: any) => formatDateTime(r.created_at) },
     { title: 'Пользователь', key: 'user', width: 180, render: (_: any, r: any) => r.user?.full_name || '—' },
     { title: 'Действие', key: 'action', width: 140, render: (_: any, r: any) => ACTION_LABELS[r.action] || r.action },
     { title: 'Объект', dataIndex: 'entity_type', key: 'entity', width: 100 },
@@ -58,8 +59,8 @@ export default function AuditPage() {
               options={Object.entries(ACTION_LABELS).map(([k, v]) => ({ value: k, label: v }))} />
           </Col>
           <Col span={6}>
-            <RangePicker placeholder={['Начало', 'Конец']} style={{ width: '100%' }} onChange={(dates) => {
-              if (dates && dates[0] && dates[1]) setDateRange([dates[0].format('YYYY-MM-DD'), dates[1].format('YYYY-MM-DD')]);
+            <RangePicker placeholder={['Начало', 'Конец']} format={DATE_FORMAT} style={{ width: '100%' }} onChange={(dates) => {
+              if (dates && dates[0] && dates[1]) setDateRange([toApiDate(dates[0])!, toApiDate(dates[1])!]);
               else setDateRange(null);
             }} />
           </Col>

@@ -88,7 +88,7 @@ export default function ItemsPage() {
   const columns = [
     { title: 'Инв. №', dataIndex: 'inventory_number', key: 'inv', width: 120, sorter: true },
     { title: '№ в фонде', dataIndex: 'fond_number', key: 'fond_number', width: 110, render: (v: string) => v || '—' },
-    { title: 'Наименование', dataIndex: 'name', key: 'name', ellipsis: true, sorter: true },
+    { title: 'Наименование', dataIndex: 'name', key: 'name', width: 200, ellipsis: true, sorter: true },
     {
       title: 'Кол-во', dataIndex: 'quantity', key: 'qty', width: 70,
       render: (v: number) => v ?? 1,
